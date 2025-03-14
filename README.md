@@ -8,7 +8,7 @@ ColorVisionAid is a software application designed to assist individuals with col
 - **Color Highlighting:** Highlights specific colors such as red, green, blue, and yellow to make them more distinguishable.
 - **Customizable Settings:** Allows users to personalize the application based on their type of color blindness.
 - **Screenshot Gallery:** View and manage saved screenshots within the application.
-- **Multi-Language Support:** Supports multiple languages for a better user experience. (Currently only in English and Turkish.)
+- **Multi-Language Support:** Supports multiple languages for a better user experience. (Currently only available in English and Turkish.)
 
 ## Future Features
 

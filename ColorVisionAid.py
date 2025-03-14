@@ -219,25 +219,81 @@ class ColorVisionAid(QMainWindow):
         # Camera view area
         self.camera_container = QWidget()
         self.camera_layout = QVBoxLayout(self.camera_container)
-        self.camera_feed = QLabel(tr.get_text("camera_initializing"))
-        self.camera_feed.setAlignment(Qt.AlignCenter)
-        self.camera_feed.setStyleSheet("background-color: #222; color: white; border-radius: 10px;")
-        self.camera_layout.addWidget(self.camera_feed)
+        
+        # Camera feed with permission information
+        self.camera_feed_container = QWidget()
+        self.camera_feed_container.setStyleSheet("background-color: #222; border-radius: 10px;")
+        
+        self.camera_feed_layout = QVBoxLayout(self.camera_feed_container)
+        self.camera_feed_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Add initial camera message without permission buttons
+        self.show_camera_initial_message()
+        
+        self.camera_layout.addWidget(self.camera_feed_container)
         
         # Add buttons under camera
         button_layout = QHBoxLayout()
-        self.start_button = QPushButton(tr.get_text("start"))
-        self.stop_button = QPushButton(tr.get_text("stop"))
+        # Replace separate buttons with a single toggle button
+        self.toggle_camera_button = QPushButton(tr.get_text("start"))
+        self.toggle_camera_button.setToolTip(tr.get_text("start_tooltip"))
+        self.toggle_camera_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #66BB6A;
+                border: 2px solid #81C784;
+            }
+            QPushButton:pressed {
+                background-color: #43A047;
+            }
+        """)
+        self.toggle_camera_button.clicked.connect(self.toggle_camera)
+        
         self.snapshot_button = QPushButton(tr.get_text("take_screenshot"))
         self.gallery_button = QPushButton(tr.get_text("gallery"))
         
-        self.start_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; border-radius: 5px;")
-        self.stop_button.setStyleSheet("background-color: #f44336; color: white; padding: 8px; border-radius: 5px;")
-        self.snapshot_button.setStyleSheet("background-color: #2196F3; color: white; padding: 8px; border-radius: 5px;")
-        self.gallery_button.setStyleSheet("background-color: #9C27B0; color: white; padding: 8px; border-radius: 5px;")
+        # Add tooltips to buttons
+        self.snapshot_button.setToolTip(tr.get_text("snapshot_tooltip"))
+        self.gallery_button.setToolTip(tr.get_text("gallery_tooltip"))
         
-        button_layout.addWidget(self.start_button)
-        button_layout.addWidget(self.stop_button)
+        # Add hover style effects for other buttons
+        self.snapshot_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #42A5F5;
+                border: 2px solid #64B5F6;
+            }
+            QPushButton:pressed {
+                background-color: #1E88E5;
+            }
+        """)
+        self.gallery_button.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AB47BC;
+                border: 2px solid #BA68C8;
+            }
+            QPushButton:pressed {
+                background-color: #8E24AA;
+            }
+        """)
+        
+        button_layout.addWidget(self.toggle_camera_button)
         button_layout.addWidget(self.snapshot_button)
         button_layout.addWidget(self.gallery_button)
         
@@ -294,6 +350,63 @@ class ColorVisionAid(QMainWindow):
         display_group.setLayout(display_layout)
         self.display_group = display_group
         
+        # Add Camera Settings group
+        camera_settings_group = QGroupBox(tr.get_text("camera_settings"))
+        camera_layout = QVBoxLayout()
+        
+        # Add info text explaining camera permissions
+        camera_info_label = QLabel(tr.get_text("camera_settings_info"))
+        camera_info_label.setWordWrap(True)
+        camera_info_label.setStyleSheet("color: #CCC; font-size: 9pt;")
+        camera_layout.addWidget(camera_info_label)
+        
+        # Show current permission status
+        self.camera_permission = self.settings.value("camera_permission", "ask")
+        permission_status_text = ""
+        if self.camera_permission == "granted":
+            permission_status_text = tr.get_text("permission_status_granted")
+        elif self.camera_permission == "denied":
+            permission_status_text = tr.get_text("permission_status_denied")
+        else:
+            permission_status_text = tr.get_text("permission_status_ask")
+            
+        permission_status_label = QLabel(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
+        permission_status_label.setStyleSheet("color: #2196F3; margin-top: 8px;")
+        camera_layout.addWidget(permission_status_label)
+        self.permission_status_label = permission_status_label
+        
+        # Add reset camera permission button with icon
+        self.reset_permission_button = QPushButton(tr.get_text("reset_camera_permission"))
+        self.reset_permission_button.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+                text-align: left;
+                padding-left: 30px;
+            }
+            QPushButton:hover {
+                background-color: #777;
+                border: 1px solid #999;
+            }
+            QPushButton:pressed {
+                background-color: #444;
+            }
+        """)
+        
+        # Try to add icon to button
+        reset_icon_path = os.path.join(os.path.dirname(__file__), 'icons', 'reset_icon.png')
+        if os.path.exists(reset_icon_path):
+            self.reset_permission_button.setIcon(QIcon(reset_icon_path))
+        
+        self.reset_permission_button.clicked.connect(self.reset_camera_permission)
+        camera_layout.addWidget(self.reset_permission_button)
+        
+        camera_settings_group.setLayout(camera_layout)
+        self.camera_settings_group = camera_settings_group
+        self.camera_info_label = camera_info_label
+        
         # Language settings
         language_group = QGroupBox(tr.get_text("language"))
         language_layout = QVBoxLayout()
@@ -319,6 +432,7 @@ class ColorVisionAid(QMainWindow):
         # Add groups to settings panel
         self.settings_layout.addWidget(color_group)
         self.settings_layout.addWidget(display_group)
+        self.settings_layout.addWidget(camera_settings_group)
         self.settings_layout.addWidget(language_group)
         
         # About section
@@ -348,9 +462,8 @@ class ColorVisionAid(QMainWindow):
         self.camera_on = False
         self.cam = None
         
-        # Connect signals
-        self.start_button.clicked.connect(self.start_camera)
-        self.stop_button.clicked.connect(self.stop_camera)
+        # Connect signals - update these lines to match our new approach
+        # Remove the start_button and stop_button connections and use toggle_camera_button instead
         self.snapshot_button.clicked.connect(self.take_snapshot)
         self.gallery_button.clicked.connect(self.open_gallery)
         
@@ -367,6 +480,9 @@ class ColorVisionAid(QMainWindow):
                 color: #EEE;
                 font-size: 10pt;
             }
+            QCheckBox:hover {
+                color: #2196F3;
+            }
             QGroupBox {
                 border: 2px solid #555;
                 border-radius: 5px;
@@ -378,6 +494,9 @@ class ColorVisionAid(QMainWindow):
                 subcontrol-origin: margin;
                 padding: 0 5px;
                 color: #2196F3;
+            }
+            QGroupBox:hover {
+                border: 2px solid #2196F3;
             }
             QSlider::groove:horizontal {
                 height: 8px;
@@ -391,13 +510,45 @@ class ColorVisionAid(QMainWindow):
                 margin: -2px 0;
                 border-radius: 9px;
             }
+            QSlider::handle:horizontal:hover {
+                background: #64B5F6;
+                border: 1px solid #90CAF9;
+                width: 20px;
+                margin: -3px 0;
+            }
             QComboBox {
                 background-color: #555;
                 color: white;
                 padding: 5px;
                 border-radius: 3px;
             }
+            QComboBox:hover {
+                background-color: #666;
+                border: 1px solid #2196F3;
+            }
+            QToolTip {
+                background-color: #444;
+                color: white;
+                border: 1px solid #2196F3;
+                padding: 2px;
+                border-radius: 3px;
+                opacity: 200;
+            }
         """)
+        
+        # Load user preferences
+        self.camera_permission = self.settings.value("camera_permission", "ask")  # "granted", "denied", "ask"
+
+        # Add tooltips to checkboxes
+        self.red_checkbox.setToolTip(tr.get_text("red_checkbox_tooltip"))
+        self.green_checkbox.setToolTip(tr.get_text("green_checkbox_tooltip"))
+        self.blue_checkbox.setToolTip(tr.get_text("blue_checkbox_tooltip"))
+        self.yellow_checkbox.setToolTip(tr.get_text("yellow_checkbox_tooltip"))
+        
+        # Add tooltips to sliders
+        self.sensitivity_slider.setToolTip(tr.get_text("sensitivity_tooltip"))
+        self.contrast_slider.setToolTip(tr.get_text("contrast_tooltip"))
+        self.display_mode.setToolTip(tr.get_text("display_mode_tooltip"))
 
     def initialize_color_ranges(self):
         self.color_ranges = {
@@ -442,8 +593,6 @@ class ColorVisionAid(QMainWindow):
         self.setWindowTitle(tr.get_text("app_title"))
         
         # Update buttons
-        self.start_button.setText(tr.get_text("start"))
-        self.stop_button.setText(tr.get_text("stop"))
         self.snapshot_button.setText(tr.get_text("take_screenshot"))
         self.gallery_button.setText(tr.get_text("gallery"))
         
@@ -480,36 +629,299 @@ class ColorVisionAid(QMainWindow):
         self.contrast_label.setText(tr.get_text("contrast"))
         self.display_mode_label.setText(tr.get_text("display_mode"))
         
+        # Update camera settings group
+        self.camera_settings_group.setTitle(tr.get_text("camera_settings"))
+        self.camera_info_label.setText(tr.get_text("camera_settings_info"))
+        self.reset_permission_button.setText(tr.get_text("reset_camera_permission"))
+        
+        # Update permission status
+        permission_status_text = ""
+        if self.camera_permission == "granted":
+            permission_status_text = tr.get_text("permission_status_granted")
+        elif self.camera_permission == "denied":
+            permission_status_text = tr.get_text("permission_status_denied")
+        else:
+            permission_status_text = tr.get_text("permission_status_ask")
+        self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
+        
         if not self.camera_on:
-            self.camera_feed.setText(tr.get_text("camera_initializing"))
-            
+            # Refresh the initial message UI with the new language
+            self.show_camera_initial_message()
+        
         self.about_label.setText(tr.get_text("about_text"))
         
         # Update status bar
         if not self.camera_on:
             self.status_bar.showMessage(tr.get_text("ready"))
 
-    def start_camera(self):
-        if not self.camera_on:
-            self.cam = cv2.VideoCapture(0)
-            if self.cam.isOpened():
-                self.camera_on = True
-                self.timer.start(33)  # ~30 FPS
-                self.status_bar.showMessage(tr.get_text("camera_started"))
-                self.start_button.setEnabled(False)
-                self.stop_button.setEnabled(True)
-            else:
-                self.status_bar.showMessage(tr.get_text("camera_start_failed"))
-
-    def stop_camera(self):
+        # Update tooltips
+        self.snapshot_button.setToolTip(tr.get_text("snapshot_tooltip"))
+        self.gallery_button.setToolTip(tr.get_text("gallery_tooltip"))
+        
+        self.red_checkbox.setToolTip(tr.get_text("red_checkbox_tooltip"))
+        self.green_checkbox.setToolTip(tr.get_text("green_checkbox_tooltip"))
+        self.blue_checkbox.setToolTip(tr.get_text("blue_checkbox_tooltip"))
+        self.yellow_checkbox.setToolTip(tr.get_text("yellow_checkbox_tooltip"))
+        
+        self.sensitivity_slider.setToolTip(tr.get_text("sensitivity_tooltip"))
+        self.contrast_slider.setToolTip(tr.get_text("contrast_tooltip"))
+        self.display_mode.setToolTip(tr.get_text("display_mode_tooltip"))
+        
+        # Update the toggle button text based on camera state
         if self.camera_on:
-            self.timer.stop()
-            self.cam.release()
-            self.camera_on = False
-            self.camera_feed.setText(tr.get_text("camera_stopped"))
-            self.status_bar.showMessage(tr.get_text("camera_stopped"))
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
+            self.toggle_camera_button.setText(tr.get_text("stop"))
+            self.toggle_camera_button.setToolTip(tr.get_text("stop_tooltip"))
+        else:
+            self.toggle_camera_button.setText(tr.get_text("start"))
+            self.toggle_camera_button.setToolTip(tr.get_text("start_tooltip"))
+
+    def show_camera_initial_message(self):
+        """Display the initial camera message without permission buttons"""
+        # Clear any existing widgets in camera feed
+        for i in reversed(range(self.camera_feed_layout.count())): 
+            self.camera_feed_layout.itemAt(i).widget().setParent(None)
+        
+        # Create message layout
+        message_layout = QVBoxLayout()
+        
+        # Add camera icon
+        camera_icon_label = QLabel()
+        camera_icon = QPixmap(os.path.join(os.path.dirname(__file__), 'icons', 'camera_icon.png'))
+        if camera_icon.isNull():
+            # If icon file doesn't exist, create a text placeholder
+            camera_icon_label.setText("📷")
+            camera_icon_label.setStyleSheet("font-size: 48pt; color: #4CAF50;")
+        else:
+            # Scale icon to appropriate size
+            camera_icon = camera_icon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            camera_icon_label.setPixmap(camera_icon)
+        
+        camera_icon_label.setAlignment(Qt.AlignCenter)
+        message_layout.addWidget(camera_icon_label)
+        
+        # Add information about click to start
+        info_text = QLabel(tr.get_text("camera_ready"))
+        info_text.setStyleSheet("color: white; font-size: 14pt; margin: 15px;")
+        info_text.setWordWrap(True)
+        info_text.setAlignment(Qt.AlignCenter)
+        message_layout.addWidget(info_text)
+        
+        # Create a container widget for the message layout
+        message_widget = QWidget()
+        message_widget.setLayout(message_layout)
+        
+        # Add the message widget to the camera feed layout
+        self.camera_feed_layout.addWidget(message_widget)
+
+    def show_camera_permission_ui(self):
+        """Display the camera permission UI in the camera feed area with enhanced buttons"""
+        # Clear any existing widgets in camera feed
+        for i in reversed(range(self.camera_feed_layout.count())): 
+            self.camera_feed_layout.itemAt(i).widget().setParent(None)
+        
+        # Create permission layout
+        permission_layout = QVBoxLayout()
+        
+        # Add camera icon
+        camera_icon_label = QLabel()
+        camera_icon = QPixmap(os.path.join(os.path.dirname(__file__), 'icons', 'camera_icon.png'))
+        if camera_icon.isNull():
+            # If icon file doesn't exist, create a text placeholder
+            camera_icon_label.setText("📷")
+            camera_icon_label.setStyleSheet("font-size: 48pt; color: #4CAF50;")
+        else:
+            # Scale icon to appropriate size
+            camera_icon = camera_icon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            camera_icon_label.setPixmap(camera_icon)
+        
+        camera_icon_label.setAlignment(Qt.AlignCenter)
+        permission_layout.addWidget(camera_icon_label)
+        
+        # Add permission text
+        permission_text = QLabel(tr.get_text("camera_permission_text"))
+        permission_text.setStyleSheet("color: white; font-size: 12pt; margin: 15px;")
+        permission_text.setWordWrap(True)
+        permission_text.setAlignment(Qt.AlignCenter)
+        permission_layout.addWidget(permission_text)
+        
+        # Add buttons for permission
+        button_widget = QWidget()
+        button_layout = QHBoxLayout(button_widget)
+        
+        # Grant permission button with enhanced hover effects
+        grant_button = QPushButton(tr.get_text("grant_permission"))
+        grant_button.setToolTip(tr.get_text("grant_permission_tooltip"))
+        grant_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #66BB6A;
+                border: 2px solid #81C784;
+            }
+            QPushButton:pressed {
+                background-color: #43A047;
+            }
+        """)
+        grant_button.clicked.connect(self.on_camera_permission_granted)
+        
+        # Deny permission button with enhanced hover effects
+        deny_button = QPushButton(tr.get_text("deny_permission"))
+        deny_button.setToolTip(tr.get_text("deny_permission_tooltip"))
+        deny_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                padding: 8px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #EF5350;
+                border: 2px solid #E57373;
+            }
+            QPushButton:pressed {
+                background-color: #E53935;
+            }
+        """)
+        deny_button.clicked.connect(self.on_camera_permission_denied)
+        
+        # Add checkbox to remember decision with hover effect
+        self.remember_permission = QCheckBox(tr.get_text("remember_decision"))
+        self.remember_permission.setToolTip(tr.get_text("remember_decision_tooltip"))
+        self.remember_permission.setStyleSheet("""
+            QCheckBox {
+                color: white;
+            }
+            QCheckBox:hover {
+                color: #2196F3;
+            }
+        """)
+        self.remember_permission.setChecked(True)
+        
+        button_layout.addWidget(deny_button)
+        button_layout.addWidget(grant_button)
+        
+        permission_layout.addWidget(button_widget)
+        permission_layout.addWidget(self.remember_permission)
+        
+        # Create a container widget for the permission layout
+        permission_widget = QWidget()
+        permission_widget.setLayout(permission_layout)
+        
+        # Add the permission widget to the camera feed layout
+        self.camera_feed_layout.addWidget(permission_widget)
+
+    def reset_camera_permission(self):
+        """Reset saved camera permission to ask again next time"""
+        self.camera_permission = "ask"
+        self.settings.setValue("camera_permission", "ask")
+        self.status_bar.showMessage(tr.get_text("permission_reset"))
+        
+        # Update the permission status display
+        self.update_permission_status_display()
+    
+    def on_camera_permission_granted(self):
+        """Handle when permission is granted by the user"""
+        # Save permission preference if requested
+        if hasattr(self, 'remember_permission') and self.remember_permission.isChecked():
+            self.camera_permission = "granted"
+            self.settings.setValue("camera_permission", "granted")
+            # Update the permission status display
+            self.update_permission_status_display()
+            
+        # Continue with starting the camera
+        self.start_camera_process()
+    
+    def on_camera_permission_denied(self):
+        """Handle when permission is denied by the user"""
+        # Save permission preference if requested
+        if hasattr(self, 'remember_permission') and self.remember_permission.isChecked():
+            self.camera_permission = "denied"
+            self.settings.setValue("camera_permission", "denied")
+            # Update the permission status display
+            self.update_permission_status_display()
+        
+        self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
+        # Return to initial message
+        self.show_camera_initial_message()
+    
+    def update_permission_status_display(self):
+        """Update the permission status display in Camera Settings"""
+        permission_status_text = ""
+        if self.camera_permission == "granted":
+            permission_status_text = tr.get_text("permission_status_granted")
+        elif self.camera_permission == "denied":
+            permission_status_text = tr.get_text("permission_status_denied")
+        else:
+            permission_status_text = tr.get_text("permission_status_ask")
+        
+        self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
+    
+    def toggle_camera(self):
+        """Toggle camera on and off"""
+        if self.camera_on:
+            self.stop_camera()
+        else:
+            self.start_camera()
+    
+    def start_camera(self):
+        """Start the camera after checking permissions"""
+        if not self.camera_on:
+            # Check saved permission preference
+            if self.camera_permission == "granted":
+                # Permission already granted, start camera directly
+                self.start_camera_process()
+            elif self.camera_permission == "denied":
+                # Permission already denied
+                self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
+            else:
+                # Ask for permission
+                self.show_camera_permission_ui()
+    
+    def start_camera_process(self):
+        """Start the camera process after permission is granted"""
+        # Clear the camera feed layout
+        for i in reversed(range(self.camera_feed_layout.count())): 
+            self.camera_feed_layout.itemAt(i).widget().setParent(None)
+            
+        # Show initializing message
+        initializing_label = QLabel(tr.get_text("camera_initializing"))
+        initializing_label.setStyleSheet("color: white; font-size: 12pt;")
+        initializing_label.setAlignment(Qt.AlignCenter)
+        self.camera_feed_layout.addWidget(initializing_label)
+        QApplication.processEvents()  # Update UI immediately
+        
+        # Now try to start the camera
+        self.cam = cv2.VideoCapture(0)
+        if self.cam.isOpened():
+            self.camera_on = True
+            self.timer.start(33)  # ~30 FPS
+            self.status_bar.showMessage(tr.get_text("camera_started"))
+            
+            # Update the toggle button appearance for "Stop"
+            self.toggle_camera_button.setText(tr.get_text("stop"))
+            self.toggle_camera_button.setToolTip(tr.get_text("stop_tooltip"))
+            self.toggle_camera_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #f44336;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #EF5350;
+                    border: 2px solid #E57373;
+                }
+                QPushButton:pressed {
+                    background-color: #E53935;
+                }
+            """)
+        else:
+            self.status_bar.showMessage(tr.get_text("camera_start_failed"))
+            self.show_camera_initial_message()  # Show initial message again if camera fails to start
 
     def take_snapshot(self):
         if hasattr(self, 'current_frame'):
@@ -644,7 +1056,51 @@ class ColorVisionAid(QMainWindow):
             h, w, c = combined_result.shape
             bytesPerLine = 3 * w
             qImg = QImage(combined_result.data, w, h, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
-            self.camera_feed.setPixmap(QPixmap.fromImage(qImg).scaled(self.camera_feed.width(), self.camera_feed.height(), Qt.KeepAspectRatio))
+            
+            # Since we no longer have a camera_feed QLabel, we need to create one for displaying the image
+            # Clear any existing widgets
+            for i in reversed(range(self.camera_feed_layout.count())): 
+                self.camera_feed_layout.itemAt(i).widget().setParent(None)
+                
+            # Create and add image label
+            image_label = QLabel()
+            image_label.setPixmap(QPixmap.fromImage(qImg).scaled(
+                self.camera_feed_container.width() - 40,  # Account for margins
+                self.camera_feed_container.height() - 40, 
+                Qt.KeepAspectRatio
+            ))
+            image_label.setAlignment(Qt.AlignCenter)
+            self.camera_feed_layout.addWidget(image_label)
+
+    def stop_camera(self):
+        if self.camera_on:
+            self.timer.stop()
+            self.cam.release()
+            self.camera_on = False
+            
+            # Return to initial message
+            self.show_camera_initial_message()
+            
+            self.status_bar.showMessage(tr.get_text("camera_stopped"))
+            
+            # Update the toggle button appearance for "Start"
+            self.toggle_camera_button.setText(tr.get_text("start"))
+            self.toggle_camera_button.setToolTip(tr.get_text("start_tooltip"))
+            self.toggle_camera_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #66BB6A;
+                    border: 2px solid #81C784;
+                }
+                QPushButton:pressed {
+                    background-color: #43A047;
+                }
+            """)
 
     def open_gallery(self):
         gallery = ScreenshotGallery(self)

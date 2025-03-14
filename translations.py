@@ -29,6 +29,10 @@ class Translations:
                 "en": "Camera stopped",
                 "tr": "Kamera durduruldu"
             },
+            "camera_ready": {
+                "en": "Click the \"Start\" button to activate the camera",
+                "tr": "Kamerayı etkinleştirmek için \"Başlat\" düğmesine tıklayın"
+            },
             "ready": {
                 "en": "Ready",
                 "tr": "Hazır"
@@ -116,8 +120,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "ColorVisionAid (CVA)\nVersion 1.1\n\nDesigned to assist individuals\nwith color vision deficiency.",
-                "tr": "ColorVisionAid (CVA)\nSürüm 1.1\n\nRenk görme zorluğu yaşayan\nbireylere yardımcı olmak için\ntasarlanmıştır."
+                "en": "ColorVisionAid (CVA)\nVersion 1.0.2\n\nDesigned to assist individuals\nwith color vision deficiency.",
+                "tr": "ColorVisionAid (CVA)\nSürüm 1.0.2\n\nRenk görme zorluğu yaşayan\nbireylere yardımcı olmak için\ntasarlanmıştır."
             },
             
             # Gallery
@@ -204,6 +208,130 @@ class Translations:
             "language_changed": {
                 "en": "Language changed",
                 "tr": "Dil değiştirildi"
+            },
+            
+            # Permission dialog
+            "camera_permission_title": {
+                "en": "Camera Permission",
+                "tr": "Kamera İzni"
+            },
+            "camera_permission_text": {
+                "en": "ColorVisionAid needs access to your camera to detect colors.",
+                "tr": "ColorVisionAid renkleri algılamak için kamera erişimine ihtiyaç duyar."
+            },
+            
+            # Camera permissions
+            "grant_permission": {
+                "en": "Allow Access",
+                "tr": "Erişime İzin Ver"
+            },
+            "deny_permission": {
+                "en": "Deny Access",
+                "tr": "Erişimi Reddet"
+            },
+            "camera_permission_denied": {
+                "en": "Camera access denied",
+                "tr": "Kamera erişimi reddedildi"
+            },
+            "remember_decision": {
+                "en": "Remember my decision",
+                "tr": "Kararımı hatırla"
+            },
+            "permission_reset": {
+                "en": "Camera permission reset successfully",
+                "tr": "Kamera izinleri başarıyla sıfırlandı"
+            },
+            "reset_camera_permission": {
+                "en": "Reset Camera Permission",
+                "tr": "Kamera İznini Sıfırla"
+            },
+            "camera_settings": {
+                "en": "Camera Settings",
+                "tr": "Kamera Ayarları"
+            },
+            "camera_settings_info": {
+                "en": "Control how the app accesses your camera.",
+                "tr": "Uygulamanın kameranıza nasıl erişeceğini kontrol edin."
+            },
+            "current_permission_status": {
+                "en": "Current status",
+                "tr": "Mevcut durum"
+            },
+            "permission_status_granted": {
+                "en": "Access granted",
+                "tr": "Erişim izni verildi"
+            },
+            "permission_status_denied": {
+                "en": "Access denied",
+                "tr": "Erişim reddedildi"
+            },
+            "permission_status_ask": {
+                "en": "Ask each time",
+                "tr": "Her seferinde sor"
+            },
+            
+            # Button tooltips
+            "start_tooltip": {
+                "en": "Start the camera to begin detecting colors",
+                "tr": "Renk algılamaya başlamak için kamerayı başlatın"
+            },
+            "stop_tooltip": {
+                "en": "Stop the camera and color detection",
+                "tr": "Kamerayı ve renk algılamayı durdurun"
+            },
+            "snapshot_tooltip": {
+                "en": "Take a snapshot of the current camera view",
+                "tr": "Mevcut kamera görüntüsünün ekran görüntüsünü alın"
+            },
+            "gallery_tooltip": {
+                "en": "View your saved snapshots",
+                "tr": "Kayıtlı ekran görüntülerinizi görüntüleyin"
+            },
+            
+            # Checkbox tooltips
+            "red_checkbox_tooltip": {
+                "en": "Enable red color detection",
+                "tr": "Kırmızı renk algılamayı etkinleştir"
+            },
+            "green_checkbox_tooltip": {
+                "en": "Enable green color detection",
+                "tr": "Yeşil renk algılamayı etkinleştir"
+            },
+            "blue_checkbox_tooltip": {
+                "en": "Enable blue color detection",
+                "tr": "Mavi renk algılamayı etkinleştir"
+            },
+            "yellow_checkbox_tooltip": {
+                "en": "Enable yellow color detection",
+                "tr": "Sarı renk algılamayı etkinleştir"
+            },
+            
+            # Slider tooltips
+            "sensitivity_tooltip": {
+                "en": "Adjust how sensitive the detection is",
+                "tr": "Algılamanın ne kadar hassas olacağını ayarlayın"
+            },
+            "contrast_tooltip": {
+                "en": "Adjust the contrast of the display",
+                "tr": "Ekranın kontrastını ayarlayın"
+            },
+            "display_mode_tooltip": {
+                "en": "Choose a display mode that fits your needs",
+                "tr": "İhtiyaçlarınıza uygun bir görüntüleme modu seçin"
+            },
+            
+            # Permission button tooltips
+            "grant_permission_tooltip": {
+                "en": "Allow camera access for color detection",
+                "tr": "Renk tespiti için kamera erişimine izin ver"
+            },
+            "deny_permission_tooltip": {
+                "en": "Deny camera access (color detection will not work)",
+                "tr": "Kamera erişimini reddet (renk tespiti çalışmayacak)"
+            },
+            "remember_decision_tooltip": {
+                "en": "Save this choice for future sessions",
+                "tr": "Bu seçimi gelecek oturumlar için kaydet"
             }
         }
     
