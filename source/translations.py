@@ -120,8 +120,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "ColorVisionAid (CVA)\nVersion 1.0.2\n\nDesigned to assist individuals\nwith color vision deficiency.",
-                "tr": "ColorVisionAid (CVA)\nSürüm 1.0.2\n\nRenk görme zorluğu yaşayan\nbireylere yardımcı olmak için\ntasarlanmıştır."
+                "en": "ColorVisionAid (CVA)\nVersion 1.0.3\n\nDesigned to assist individuals\nwith color vision deficiency.",
+                "tr": "ColorVisionAid (CVA)\nSürüm 1.0.3\n\nRenk görme zorluğu yaşayan\nbireylere yardımcı olmak için\ntasarlanmıştır."
             },
             
             # Gallery
