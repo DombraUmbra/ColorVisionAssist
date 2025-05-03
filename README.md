@@ -1,4 +1,4 @@
-# ColorVisionAid (CVA)
+# ColorVisionAssist (CVA)
 
 ColorVisionAid is a software application designed to assist individuals with color blindness in distinguishing between colors they commonly confuse. The software utilizes real-time image processing through a camera to highlight specific colors and provide visual guidance to the user.
 
