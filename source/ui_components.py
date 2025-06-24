@@ -7,12 +7,12 @@ from PyQt5.QtGui import QIcon
 # Paketin kendi modüllerini import et
 from .translations import translator as tr
 
-def create_button(text, tooltip, style_class="default", callback=None):
+def buton_olustur(metin, ipucu, stil_sinifi="default", callback=None):
     """Standart stilli buton oluştur"""
-    button = QPushButton(text)
-    button.setToolTip(tooltip)
+    buton = QPushButton(metin)
+    buton.setToolTip(ipucu)
     
-    style_dict = {
+    stil_sozlugu = {
         "default": """
             QPushButton {
                 background-color: #555;
@@ -90,142 +90,142 @@ def create_button(text, tooltip, style_class="default", callback=None):
         """
     }
     
-    button.setStyleSheet(style_dict.get(style_class, style_dict["default"]))
+    buton.setStyleSheet(stil_sozlugu.get(stil_sinifi, stil_sozlugu["default"]))
     
     if callback:
-        button.clicked.connect(callback)
+        buton.clicked.connect(callback)
     
-    return button
+    return buton
 
-def create_camera_controls(parent):
+def kamera_kontrolleri_olustur(ebeveyn):
     """Kamera kontrol butonlarını oluştur"""
-    button_layout = QHBoxLayout()
+    buton_duzen = QHBoxLayout()
     
     # Kamera aç/kapa butonu
-    toggle_camera_button = create_button(
+    kamera_acma_kapama_buton = buton_olustur(
         tr.get_text("start"), 
         tr.get_text("start_tooltip"),
         "start",
-        parent.toggle_camera
+        ebeveyn.kamerayi_ac_kapat
     )
-    parent.toggle_camera_button = toggle_camera_button
+    ebeveyn.kamera_acma_kapama_buton = kamera_acma_kapama_buton
     
     # Ekran görüntüsü ve galeri butonları
-    snapshot_button = create_button(
+    ekran_goruntusu_buton = buton_olustur(
         tr.get_text("take_screenshot"),
         tr.get_text("snapshot_tooltip"),
         "snapshot",
-        parent.take_snapshot
+        ebeveyn.ekran_goruntusu_al
     )
     # Kamera kapalıyken görünmez yap
-    snapshot_button.setVisible(parent.camera_manager.camera_on)
-    parent.snapshot_button = snapshot_button
+    ekran_goruntusu_buton.setVisible(ebeveyn.kamera_yoneticisi.kamera_acik)
+    ebeveyn.ekran_goruntusu_buton = ekran_goruntusu_buton
     
-    gallery_button = create_button(
+    galeri_buton = buton_olustur(
         tr.get_text("gallery"),
         tr.get_text("gallery_tooltip"),
         "gallery",
-        parent.open_gallery
+        ebeveyn.galeri_ac
     )
-    parent.gallery_button = gallery_button
+    ebeveyn.galeri_buton = galeri_buton
     
-    button_layout.addWidget(toggle_camera_button)
-    button_layout.addWidget(snapshot_button)
-    button_layout.addWidget(gallery_button)
+    buton_duzen.addWidget(kamera_acma_kapama_buton)
+    buton_duzen.addWidget(ekran_goruntusu_buton)
+    buton_duzen.addWidget(galeri_buton)
     
-    return button_layout
+    return buton_duzen
 
-def create_color_detection_group(parent):
+def renk_algilama_grubu_olustur(ebeveyn):
     """Renk algılama ayarları grubu oluştur"""
-    color_group = QGroupBox(tr.get_text("color_detection"))
-    color_layout = QVBoxLayout()
+    renk_grubu = QGroupBox(tr.get_text("color_detection"))
+    renk_duzen = QVBoxLayout()
     
-    parent.red_checkbox = QCheckBox(tr.get_text("detect_red"))
-    parent.green_checkbox = QCheckBox(tr.get_text("detect_green"))
-    parent.blue_checkbox = QCheckBox(tr.get_text("detect_blue"))
-    parent.yellow_checkbox = QCheckBox(tr.get_text("detect_yellow"))
+    ebeveyn.kirmizi_onay_kutu = QCheckBox(tr.get_text("detect_red"))
+    ebeveyn.yesil_onay_kutu = QCheckBox(tr.get_text("detect_green"))
+    ebeveyn.mavi_onay_kutu = QCheckBox(tr.get_text("detect_blue"))
+    ebeveyn.sari_onay_kutu = QCheckBox(tr.get_text("detect_yellow"))
     
     # Varsayılan seçili renkler
-    parent.red_checkbox.setChecked(True)
-    parent.green_checkbox.setChecked(True)
+    ebeveyn.kirmizi_onay_kutu.setChecked(True)
+    ebeveyn.yesil_onay_kutu.setChecked(True)
     
     # İpuçları
-    parent.red_checkbox.setToolTip(tr.get_text("red_checkbox_tooltip"))
-    parent.green_checkbox.setToolTip(tr.get_text("green_checkbox_tooltip"))
-    parent.blue_checkbox.setToolTip(tr.get_text("blue_checkbox_tooltip"))
-    parent.yellow_checkbox.setToolTip(tr.get_text("yellow_checkbox_tooltip"))
+    ebeveyn.kirmizi_onay_kutu.setToolTip(tr.get_text("red_checkbox_tooltip"))
+    ebeveyn.yesil_onay_kutu.setToolTip(tr.get_text("green_checkbox_tooltip"))
+    ebeveyn.mavi_onay_kutu.setToolTip(tr.get_text("blue_checkbox_tooltip"))
+    ebeveyn.sari_onay_kutu.setToolTip(tr.get_text("yellow_checkbox_tooltip"))
     
     # Düzene ekle
-    color_layout.addWidget(parent.red_checkbox)
-    color_layout.addWidget(parent.green_checkbox)
-    color_layout.addWidget(parent.blue_checkbox)
-    color_layout.addWidget(parent.yellow_checkbox)
-    color_group.setLayout(color_layout)
+    renk_duzen.addWidget(ebeveyn.kirmizi_onay_kutu)
+    renk_duzen.addWidget(ebeveyn.yesil_onay_kutu)
+    renk_duzen.addWidget(ebeveyn.mavi_onay_kutu)
+    renk_duzen.addWidget(ebeveyn.sari_onay_kutu)
+    renk_grubu.setLayout(renk_duzen)
     
-    return color_group
+    return renk_grubu
 
-def create_display_settings_group(parent):
+def gorunum_ayarlari_grubu_olustur(ebeveyn):
     """Görüntüleme ayarları grubu oluştur"""
-    display_group = QGroupBox(tr.get_text("display_settings"))
-    display_layout = QGridLayout()
+    gorunum_grubu = QGroupBox(tr.get_text("display_settings"))
+    gorunum_duzen = QGridLayout()
     
     # Duyarlılık ayarı
-    parent.detection_sensitivity_label = QLabel(tr.get_text("detection_sensitivity"))
-    display_layout.addWidget(parent.detection_sensitivity_label, 0, 0)
-    parent.sensitivity_slider = QSlider(Qt.Horizontal)
-    parent.sensitivity_slider.setRange(1, 10)
-    parent.sensitivity_slider.setValue(5)
-    parent.sensitivity_slider.setToolTip(tr.get_text("sensitivity_tooltip"))
-    display_layout.addWidget(parent.sensitivity_slider, 0, 1)
+    ebeveyn.algilama_hassasiyet_etiket = QLabel(tr.get_text("detection_sensitivity"))
+    gorunum_duzen.addWidget(ebeveyn.algilama_hassasiyet_etiket, 0, 0)
+    ebeveyn.hassasiyet_kaydirici = QSlider(Qt.Horizontal)
+    ebeveyn.hassasiyet_kaydirici.setRange(1, 10)
+    ebeveyn.hassasiyet_kaydirici.setValue(5)
+    ebeveyn.hassasiyet_kaydirici.setToolTip(tr.get_text("sensitivity_tooltip"))
+    gorunum_duzen.addWidget(ebeveyn.hassasiyet_kaydirici, 0, 1)
     
     # Kontrast ayarı
-    parent.contrast_label = QLabel(tr.get_text("contrast"))
-    display_layout.addWidget(parent.contrast_label, 1, 0)
-    parent.contrast_slider = QSlider(Qt.Horizontal)
-    parent.contrast_slider.setRange(1, 10)
-    parent.contrast_slider.setValue(5)
-    parent.contrast_slider.setToolTip(tr.get_text("contrast_tooltip"))
-    display_layout.addWidget(parent.contrast_slider, 1, 1)
+    ebeveyn.kontrast_etiket = QLabel(tr.get_text("contrast"))
+    gorunum_duzen.addWidget(ebeveyn.kontrast_etiket, 1, 0)
+    ebeveyn.kontrast_kaydirici = QSlider(Qt.Horizontal)
+    ebeveyn.kontrast_kaydirici.setRange(1, 10)
+    ebeveyn.kontrast_kaydirici.setValue(5)
+    ebeveyn.kontrast_kaydirici.setToolTip(tr.get_text("contrast_tooltip"))
+    gorunum_duzen.addWidget(ebeveyn.kontrast_kaydirici, 1, 1)
     
     # Görüntü modu
-    parent.display_mode_label = QLabel(tr.get_text("display_mode"))
-    display_layout.addWidget(parent.display_mode_label, 2, 0)
-    parent.display_mode = QComboBox()
-    parent.display_mode.addItems(["Normal", "Deuteranopia", "Protanopia", "Tritanopia"])
-    parent.display_mode.setToolTip(tr.get_text("display_mode_tooltip"))
-    display_layout.addWidget(parent.display_mode, 2, 1)
+    ebeveyn.gorunum_modu_etiket = QLabel(tr.get_text("display_mode"))
+    gorunum_duzen.addWidget(ebeveyn.gorunum_modu_etiket, 2, 0)
+    ebeveyn.gorunum_modu = QComboBox()
+    ebeveyn.gorunum_modu.addItems(["Normal", "Deuteranopia", "Protanopia", "Tritanopia"])
+    ebeveyn.gorunum_modu.setToolTip(tr.get_text("display_mode_tooltip"))
+    gorunum_duzen.addWidget(ebeveyn.gorunum_modu, 2, 1)
     
-    display_group.setLayout(display_layout)
+    gorunum_grubu.setLayout(gorunum_duzen)
     
-    return display_group
+    return gorunum_grubu
 
-def create_camera_settings_group(parent):
+def kamera_ayarlari_grubu_olustur(ebeveyn):
     """Kamera ayarları grubu oluştur"""
-    camera_settings_group = QGroupBox(tr.get_text("camera_settings"))
-    camera_layout = QVBoxLayout()
+    kamera_ayarlari_grubu = QGroupBox(tr.get_text("camera_settings"))
+    kamera_duzen = QVBoxLayout()
     
     # Kamera izinleri hakkında bilgi
-    parent.camera_info_label = QLabel(tr.get_text("camera_settings_info"))
-    parent.camera_info_label.setWordWrap(True)
-    parent.camera_info_label.setStyleSheet("color: #CCC; font-size: 9pt;")
-    camera_layout.addWidget(parent.camera_info_label)
+    ebeveyn.kamera_bilgi_etiket = QLabel(tr.get_text("camera_settings_info"))
+    ebeveyn.kamera_bilgi_etiket.setWordWrap(True)
+    ebeveyn.kamera_bilgi_etiket.setStyleSheet("color: #CCC; font-size: 9pt;")
+    kamera_duzen.addWidget(ebeveyn.kamera_bilgi_etiket)
     
     # Mevcut izin durumunu göster
-    permission_status_text = ""
-    if parent.camera_permission == "granted":
-        permission_status_text = tr.get_text("permission_status_granted")
-    elif parent.camera_permission == "denied":
-        permission_status_text = tr.get_text("permission_status_denied")
+    izin_durum_metni = ""
+    if ebeveyn.kamera_izni == "granted":
+        izin_durum_metni = tr.get_text("permission_status_granted")
+    elif ebeveyn.kamera_izni == "denied":
+        izin_durum_metni = tr.get_text("permission_status_denied")
     else:
-        permission_status_text = tr.get_text("permission_status_ask")
+        izin_durum_metni = tr.get_text("permission_status_ask")
         
-    parent.permission_status_label = QLabel(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
-    parent.permission_status_label.setStyleSheet("color: #2196F3; margin-top: 8px;")
-    camera_layout.addWidget(parent.permission_status_label)
+    ebeveyn.izin_durum_etiket = QLabel(f"{tr.get_text('current_permission_status')}: {izin_durum_metni}")
+    ebeveyn.izin_durum_etiket.setStyleSheet("color: #2196F3; margin-top: 8px;")
+    kamera_duzen.addWidget(ebeveyn.izin_durum_etiket)
     
     # Kamera izinlerini sıfırlama butonu
-    reset_permission_button = QPushButton(tr.get_text("reset_camera_permission"))
-    reset_permission_button.setStyleSheet("""
+    izin_sifirlama_buton = QPushButton(tr.get_text("reset_camera_permission"))
+    izin_sifirlama_buton.setStyleSheet("""
         QPushButton {
             background-color: #555;
             color: white;
@@ -244,56 +244,56 @@ def create_camera_settings_group(parent):
     """)
     
     # Butona ikon ekle - ikon yolunu güncelle
-    reset_icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'reset_icon.png')
-    if os.path.exists(reset_icon_path):
-        reset_permission_button.setIcon(QIcon(reset_icon_path))
+    sifirlama_ikon_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'reset_icon.png')
+    if os.path.exists(sifirlama_ikon_yolu):
+        izin_sifirlama_buton.setIcon(QIcon(sifirlama_ikon_yolu))
     
-    reset_permission_button.clicked.connect(parent.reset_camera_permission)
-    parent.reset_permission_button = reset_permission_button
-    camera_layout.addWidget(reset_permission_button)
+    izin_sifirlama_buton.clicked.connect(ebeveyn.kamera_iznini_sifirla)
+    ebeveyn.izin_sifirlama_buton = izin_sifirlama_buton
+    kamera_duzen.addWidget(izin_sifirlama_buton)
     
-    camera_settings_group.setLayout(camera_layout)
+    kamera_ayarlari_grubu.setLayout(kamera_duzen)
     
-    return camera_settings_group
+    return kamera_ayarlari_grubu
 
-def create_language_group(parent):
+def dil_grubu_olustur(ebeveyn):
     """Dil ayarları grubu oluştur"""
-    language_group = QGroupBox(tr.get_text("language"))
-    language_layout = QVBoxLayout()
+    dil_grubu = QGroupBox(tr.get_text("language"))
+    dil_duzen = QVBoxLayout()
     
     # Dil seçimi
-    parent.language_combo = QComboBox()
-    for code, name in tr.LANGUAGES.items():
-        parent.language_combo.addItem(name, code)
+    ebeveyn.dil_combo = QComboBox()
+    for kod, ad in tr.LANGUAGES.items():
+        ebeveyn.dil_combo.addItem(ad, kod)
     
     # Mevcut dili ayarla
-    current_index = 0
-    language = parent.settings.value("language", "en")
-    for i in range(parent.language_combo.count()):
-        if parent.language_combo.itemData(i) == language:
-            current_index = i
+    mevcut_indeks = 0
+    dil = ebeveyn.ayarlar.value("language", "en")
+    for i in range(ebeveyn.dil_combo.count()):
+        if ebeveyn.dil_combo.itemData(i) == dil:
+            mevcut_indeks = i
             break
-    parent.language_combo.setCurrentIndex(current_index)
-    parent.language_combo.currentIndexChanged.connect(parent.change_language)
+    ebeveyn.dil_combo.setCurrentIndex(mevcut_indeks)
+    ebeveyn.dil_combo.currentIndexChanged.connect(ebeveyn.dil_degistir)
     
-    language_layout.addWidget(parent.language_combo)
-    language_group.setLayout(language_layout)
+    dil_duzen.addWidget(ebeveyn.dil_combo)
+    dil_grubu.setLayout(dil_duzen)
     
-    return language_group
+    return dil_grubu
 
-def create_about_group(parent):
+def hakkinda_grubu_olustur(ebeveyn):
     """Hakkında bölümü grubu oluştur"""
-    about_group = QGroupBox(tr.get_text("about"))
-    about_layout = QVBoxLayout()
+    hakkinda_grubu = QGroupBox(tr.get_text("about"))
+    hakkinda_duzen = QVBoxLayout()
     
-    parent.about_label = QLabel(tr.get_text("about_text"))
-    parent.about_label.setAlignment(Qt.AlignCenter)
-    about_layout.addWidget(parent.about_label)
-    about_group.setLayout(about_layout)
+    ebeveyn.hakkinda_etiket = QLabel(tr.get_text("about_text"))
+    ebeveyn.hakkinda_etiket.setAlignment(Qt.AlignCenter)
+    hakkinda_duzen.addWidget(ebeveyn.hakkinda_etiket)
+    hakkinda_grubu.setLayout(hakkinda_duzen)
     
-    return about_group
+    return hakkinda_grubu
 
-def apply_dark_theme(widget):
+def koyu_tema_uygula(widget):
     """Koyu tema stilini uygula"""
     widget.setStyleSheet("""
         QMainWindow {

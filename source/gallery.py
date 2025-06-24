@@ -8,67 +8,67 @@ from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap, QIcon
 
 # Modülün doğru import edilebilmesi için source klasörünü ekleme
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
+mevcut_dizin = os.path.dirname(os.path.abspath(__file__))
+if mevcut_dizin not in sys.path:
+    sys.path.append(mevcut_dizin)
 
 from .translations import translator as tr
 
 class ScreenshotGallery(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, ebeveyn=None):
+        super().__init__(ebeveyn)
         self.setWindowTitle(tr.get_text("gallery_title"))
         self.setGeometry(200, 200, 800, 600)
         
         # Icon yolunu güncelle
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'gallery_icon.png')
-        self.setWindowIcon(QIcon(icon_path))
+        ikon_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'gallery_icon.png')
+        self.setWindowIcon(QIcon(ikon_yolu))
         
         # Main layout
-        layout = QVBoxLayout()
+        duzen = QVBoxLayout()
         
         # Info label
-        self.info_label = QLabel(tr.get_text("saved_screenshots"))
-        layout.addWidget(self.info_label)
+        self.bilgi_etiket = QLabel(tr.get_text("saved_screenshots"))
+        duzen.addWidget(self.bilgi_etiket)
         
         # Create a scroll area for the gallery
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_widget = QWidget()
-        self.gallery_layout = QGridLayout(scroll_widget)
+        kaydirma_alani = QScrollArea()
+        kaydirma_alani.setWidgetResizable(True)
+        kaydirma_widget = QWidget()
+        self.galeri_duzen = QGridLayout(kaydirma_widget)
         
-        scroll_area.setWidget(scroll_widget)
-        layout.addWidget(scroll_area)
+        kaydirma_alani.setWidget(kaydirma_widget)
+        duzen.addWidget(kaydirma_alani)
         
         # Buttons layout
-        button_layout = QHBoxLayout()
+        buton_duzen = QHBoxLayout()
         
         # Add buttons
-        self.refresh_button = QPushButton(tr.get_text("refresh"))
-        self.refresh_button.clicked.connect(self.load_screenshots)
+        self.yenile_buton = QPushButton(tr.get_text("refresh"))
+        self.yenile_buton.clicked.connect(self.ekran_goruntulerini_yukle)
         
-        self.delete_button = QPushButton(tr.get_text("delete_selected"))
-        self.delete_button.clicked.connect(self.delete_selected)
-        self.delete_button.setEnabled(False)
+        self.sil_buton = QPushButton(tr.get_text("delete_selected"))
+        self.sil_buton.clicked.connect(self.secileni_sil)
+        self.sil_buton.setEnabled(False)
         
-        self.export_button = QPushButton(tr.get_text("export"))
-        self.export_button.clicked.connect(self.export_selected)
-        self.export_button.setEnabled(False)
+        self.disari_aktar_buton = QPushButton(tr.get_text("export"))
+        self.disari_aktar_buton.clicked.connect(self.secileni_disari_aktar)
+        self.disari_aktar_buton.setEnabled(False)
         
-        button_layout.addWidget(self.refresh_button)
-        button_layout.addWidget(self.delete_button)
-        button_layout.addWidget(self.export_button)
+        buton_duzen.addWidget(self.yenile_buton)
+        buton_duzen.addWidget(self.sil_buton)
+        buton_duzen.addWidget(self.disari_aktar_buton)
         
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
+        duzen.addLayout(buton_duzen)
+        self.setLayout(duzen)
         
         # Variables
-        self.screenshots = []
-        self.selected_index = -1
-        self.thumbnail_labels = []
+        self.ekran_goruntuler = []
+        self.secili_indeks = -1
+        self.kucuk_resim_etiketler = []
         
         # Load screenshots
-        self.load_screenshots()
+        self.ekran_goruntulerini_yukle()
         
         # Apply the dark theme
         self.setStyleSheet("""
@@ -98,111 +98,111 @@ class ScreenshotGallery(QDialog):
             }
         """)
     
-    def load_screenshots(self):
+    def ekran_goruntulerini_yukle(self):
         # Clear existing thumbnails
-        for label in self.thumbnail_labels:
-            self.gallery_layout.removeWidget(label)
-            label.deleteLater()
+        for etiket in self.kucuk_resim_etiketler:
+            self.galeri_duzen.removeWidget(etiket)
+            etiket.deleteLater()
         
-        self.thumbnail_labels = []
-        self.screenshots = []
+        self.kucuk_resim_etiketler = []
+        self.ekran_goruntuler = []
         
         # Ensure screenshots directory exists - ana klasör yerine source klasörünün üstünü kullan
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        screenshots_dir = os.path.join(root_dir, "screenshots")
-        if not os.path.exists(screenshots_dir):
-            os.makedirs(screenshots_dir)
+        kok_dizin = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ekran_goruntu_dizin = os.path.join(kok_dizin, "screenshots")
+        if not os.path.exists(ekran_goruntu_dizin):
+            os.makedirs(ekran_goruntu_dizin)
         
         # Find all PNG files in the screenshots directory that start with "screenshot_"
-        screenshot_files = glob.glob(os.path.join(screenshots_dir, "screenshot_*.png"))
+        ekran_goruntu_dosyalar = glob.glob(os.path.join(ekran_goruntu_dizin, "screenshot_*.png"))
         
-        if not screenshot_files:
-            self.info_label.setText(tr.get_text("no_screenshots"))
-            self.selected_index = -1
-            self.delete_button.setEnabled(False)
-            self.export_button.setEnabled(False)
+        if not ekran_goruntu_dosyalar:
+            self.bilgi_etiket.setText(tr.get_text("no_screenshots"))
+            self.secili_indeks = -1
+            self.sil_buton.setEnabled(False)
+            self.disari_aktar_buton.setEnabled(False)
             return
         
         # Sort files by creation time (newest first)
-        screenshot_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-        self.screenshots = screenshot_files
+        ekran_goruntu_dosyalar.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        self.ekran_goruntuler = ekran_goruntu_dosyalar
         
         # Display thumbnails in a grid (4 columns)
-        cols = 4
-        for i, file_path in enumerate(screenshot_files):
+        sutun_sayisi = 4
+        for i, dosya_yolu in enumerate(ekran_goruntu_dosyalar):
             # Create thumbnail
-            pixmap = QPixmap(file_path)
-            thumbnail = pixmap.scaled(QSize(150, 150), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            piksel_harita = QPixmap(dosya_yolu)
+            kucuk_resim = piksel_harita.scaled(QSize(150, 150), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             
             # Create label and add to layout
-            label = QLabel()
-            label.setPixmap(thumbnail)
-            label.setAlignment(Qt.AlignCenter)
-            label.setToolTip(file_path)
-            label.setStyleSheet("border: 2px solid #555; margin: 5px; background-color: #222; padding: 5px;")
-            label.setFixedSize(QSize(180, 180))
-            label.mousePressEvent = lambda event, idx=i: self.select_screenshot(idx)
+            etiket = QLabel()
+            etiket.setPixmap(kucuk_resim)
+            etiket.setAlignment(Qt.AlignCenter)
+            etiket.setToolTip(dosya_yolu)
+            etiket.setStyleSheet("border: 2px solid #555; margin: 5px; background-color: #222; padding: 5px;")
+            etiket.setFixedSize(QSize(180, 180))
+            etiket.mousePressEvent = lambda event, idx=i: self.ekran_goruntusu_sec(idx)
             
-            row, col = i // cols, i % cols
-            self.gallery_layout.addWidget(label, row, col)
-            self.thumbnail_labels.append(label)
+            satir, sutun = i // sutun_sayisi, i % sutun_sayisi
+            self.galeri_duzen.addWidget(etiket, satir, sutun)
+            self.kucuk_resim_etiketler.append(etiket)
         
         # Update info text
-        self.info_label.setText(f"{tr.get_text('saved_screenshots')} {len(screenshot_files)}")
+        self.bilgi_etiket.setText(f"{tr.get_text('saved_screenshots')} {len(ekran_goruntu_dosyalar)}")
 
-    def select_screenshot(self, index):
+    def ekran_goruntusu_sec(self, indeks):
         # Deselect the previous selection
-        if 0 <= self.selected_index < len(self.thumbnail_labels):
-            self.thumbnail_labels[self.selected_index].setStyleSheet("border: 2px solid #555; margin: 5px; background-color: #222; padding: 5px;")
+        if 0 <= self.secili_indeks < len(self.kucuk_resim_etiketler):
+            self.kucuk_resim_etiketler[self.secili_indeks].setStyleSheet("border: 2px solid #555; margin: 5px; background-color: #222; padding: 5px;")
         
         # Select the new one
-        self.selected_index = index
-        self.thumbnail_labels[index].setStyleSheet("border: 2px solid #2196F3; margin: 5px; background-color: #333; padding: 5px;")
+        self.secili_indeks = indeks
+        self.kucuk_resim_etiketler[indeks].setStyleSheet("border: 2px solid #2196F3; margin: 5px; background-color: #333; padding: 5px;")
         
         # Enable buttons
-        self.delete_button.setEnabled(True)
-        self.export_button.setEnabled(True)
+        self.sil_buton.setEnabled(True)
+        self.disari_aktar_buton.setEnabled(True)
     
-    def delete_selected(self):
-        if 0 <= self.selected_index < len(self.screenshots):
-            file_to_delete = self.screenshots[self.selected_index]
+    def secileni_sil(self):
+        if 0 <= self.secili_indeks < len(self.ekran_goruntuler):
+            silinecek_dosya = self.ekran_goruntuler[self.secili_indeks]
             
             # Confirm deletion
-            reply = QMessageBox.question(
+            cevap = QMessageBox.question(
                 self, 
                 tr.get_text("delete_confirmation"), 
-                tr.get_text("delete_confirm_text", file_to_delete),
+                tr.get_text("delete_confirm_text", silinecek_dosya),
                 QMessageBox.Yes | QMessageBox.No, 
                 QMessageBox.No
             )
             
-            if reply == QMessageBox.Yes:
+            if cevap == QMessageBox.Yes:
                 try:
-                    os.remove(file_to_delete)
-                    self.load_screenshots()  # Refresh the gallery
-                    self.parent().status_bar.showMessage(tr.get_text("file_deleted", file_to_delete))
+                    os.remove(silinecek_dosya)
+                    self.ekran_goruntulerini_yukle()  # Refresh the gallery
+                    self.parent().durum_cubugu.showMessage(tr.get_text("file_deleted", silinecek_dosya))
                 except Exception as e:
                     QMessageBox.critical(self, tr.get_text("error"), tr.get_text("delete_failed", str(e)))
     
-    def export_selected(self):
-        if 0 <= self.selected_index < len(self.screenshots):
-            file_to_export = self.screenshots[self.selected_index]
+    def secileni_disari_aktar(self):
+        if 0 <= self.secili_indeks < len(self.ekran_goruntuler):
+            disari_aktarilacak_dosya = self.ekran_goruntuler[self.secili_indeks]
             
             # Open file dialog to choose export location
-            export_path, _ = QFileDialog.getSaveFileName(
+            disari_aktarma_yolu, _ = QFileDialog.getSaveFileName(
                 self, 
                 tr.get_text("export_title"), 
-                os.path.basename(file_to_export),
+                os.path.basename(disari_aktarilacak_dosya),
                 "PNG Image (*.png);;JPEG Image (*.jpg);;All Files (*.*)"
             )
             
-            if export_path:
+            if disari_aktarma_yolu:
                 try:
                     # Read the original image
-                    img = cv2.imread(file_to_export)
+                    resim = cv2.imread(disari_aktarilacak_dosya)
                     
                     # Save to the selected path
-                    cv2.imwrite(export_path, img)
-                    self.parent().status_bar.showMessage(tr.get_text("file_exported", export_path))
+                    cv2.imwrite(disari_aktarma_yolu, resim)
+                    self.parent().durum_cubugu.showMessage(tr.get_text("file_exported", disari_aktarma_yolu))
                 except Exception as e:
                     QMessageBox.critical(self, tr.get_text("error"), tr.get_text("export_failed", str(e)))

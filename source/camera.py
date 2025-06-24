@@ -10,184 +10,184 @@ from PyQt5.QtGui import QPixmap
 from .translations import translator as tr
 
 class CameraManager:
-    def __init__(self, parent=None):
+    def __init__(self, ebeveyn=None):
         """
         Kamera yönetimi için sınıf
         
         Args:
-            parent: Ana uygulama penceresi referansı
+            ebeveyn: Ana uygulama penceresi referansı
         """
-        self.parent = parent
-        self.camera_on = False
-        self.cam = None
-        self.current_frame = None
+        self.ebeveyn = ebeveyn
+        self.kamera_acik = False
+        self.kamera = None
+        self.mevcut_kare = None
     
-    def start_camera(self):
+    def kamera_baslat(self):
         """Kamerayı başlat"""
-        if self.camera_on:
+        if self.kamera_acik:
             return
             
-        self.cam = cv2.VideoCapture(0)
-        if self.cam.isOpened():
-            self.camera_on = True
+        self.kamera = cv2.VideoCapture(0)
+        if self.kamera.isOpened():
+            self.kamera_acik = True
             return True
         else:
             return False
     
-    def stop_camera(self):
+    def kamera_durdur(self):
         """Kamerayı durdur"""
-        if self.camera_on:
-            self.cam.release()
-            self.camera_on = False
-            self.current_frame = None
+        if self.kamera_acik:
+            self.kamera.release()
+            self.kamera_acik = False
+            self.mevcut_kare = None
             return True
         return False
     
-    def get_frame(self):
+    def kare_al(self):
         """
         Kameradan bir kare al
         
         Returns:
             (başarı durumu, kare)
         """
-        if not self.camera_on:
+        if not self.kamera_acik:
             return False, None
             
-        ret, frame = self.cam.read()
-        if ret:
-            self.current_frame = frame.copy()
-        return ret, frame
+        sonuc, kare = self.kamera.read()
+        if sonuc:
+            self.mevcut_kare = kare.copy()
+        return sonuc, kare
     
-    def take_snapshot(self):
+    def ekran_goruntusu_al(self):
         """
         Bir ekran görüntüsü al ve kaydet
         
         Returns:
             (başarılı mı, dosya adı veya hata mesajı)
         """
-        if not hasattr(self, 'current_frame') or self.current_frame is None:
+        if not hasattr(self, 'mevcut_kare') or self.mevcut_kare is None:
             return False, "No frame available"
                 
         # Ensure screenshots directory exists - ana klasör yerine source klasörünün üstünü kullan
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        screenshots_dir = os.path.join(root_dir, "screenshots")
-        if not os.path.exists(screenshots_dir):
-            os.makedirs(screenshots_dir)
+        kok_dizin = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ekran_goruntusu_dizin = os.path.join(kok_dizin, "screenshots")
+        if not os.path.exists(ekran_goruntusu_dizin):
+            os.makedirs(ekran_goruntusu_dizin)
         
         # Find all PNG files in the screenshots directory that start with "screenshot_"
-        screenshot_files = glob.glob(os.path.join(screenshots_dir, "screenshot_*.png"))
-        next_num = 1
-        if screenshot_files:
+        ekran_goruntusu_dosyalari = glob.glob(os.path.join(ekran_goruntusu_dizin, "screenshot_*.png"))
+        sonraki_numara = 1
+        if ekran_goruntusu_dosyalari:
             # Extract numbers from existing files and find the maximum
-            existing_nums = []
-            for filename in screenshot_files:
+            mevcut_numaralar = []
+            for dosya_adi in ekran_goruntusu_dosyalari:
                 try:
-                    base_filename = os.path.basename(filename)
-                    num = int(base_filename.replace("screenshot_", "").replace(".png", ""))
-                    existing_nums.append(num)
+                    temel_dosya_adi = os.path.basename(dosya_adi)
+                    numara = int(temel_dosya_adi.replace("screenshot_", "").replace(".png", ""))
+                    mevcut_numaralar.append(numara)
                 except ValueError:
                     pass
-            if existing_nums:
-                next_num = max(existing_nums) + 1
+            if mevcut_numaralar:
+                sonraki_numara = max(mevcut_numaralar) + 1
                 
-        filename = os.path.join(screenshots_dir, f"screenshot_{next_num}.png")
-        cv2.imwrite(filename, self.current_frame)
-        return True, filename
+        dosya_adi = os.path.join(ekran_goruntusu_dizin, f"screenshot_{sonraki_numara}.png")
+        cv2.imwrite(dosya_adi, self.mevcut_kare)
+        return True, dosya_adi
 
 # Kamera arayüzü bileşenleri
-def create_camera_ui(parent, camera_feed_layout):
+def kamera_arayuzu_olustur(ebeveyn, kamera_besleme_duzen):
     """
     Kamera kullanıcı arayüzü oluştur
     
     Args:
-        parent: Ana uygulama penceresi
-        camera_feed_layout: Kamera beslemesinin ekleneceği layout
+        ebeveyn: Ana uygulama penceresi
+        kamera_besleme_duzen: Kamera beslemesinin ekleneceği layout
     """
     # Clear any existing widgets in camera feed
-    for i in reversed(range(camera_feed_layout.count())): 
-        camera_feed_layout.itemAt(i).widget().setParent(None)
+    for i in reversed(range(kamera_besleme_duzen.count())): 
+        kamera_besleme_duzen.itemAt(i).widget().setParent(None)
     
     # Create message layout
-    message_layout = QVBoxLayout()
+    mesaj_duzen = QVBoxLayout()
     
     # Add camera icon - ikon yolunu güncelle
-    camera_icon_label = QLabel()
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'camera_icon.png')
-    camera_icon = QPixmap(icon_path)
-    if camera_icon.isNull():
+    kamera_ikon_etiket = QLabel()
+    ikon_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'camera_icon.png')
+    kamera_ikon = QPixmap(ikon_yolu)
+    if kamera_ikon.isNull():
         # If icon file doesn't exist, create a text placeholder
-        camera_icon_label.setText("📷")
-        camera_icon_label.setStyleSheet("font-size: 48pt; color: #4CAF50;")
+        kamera_ikon_etiket.setText("📷")
+        kamera_ikon_etiket.setStyleSheet("font-size: 48pt; color: #4CAF50;")
     else:
         # Scale icon to appropriate size - Fix Qt constants
-        camera_icon = camera_icon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        camera_icon_label.setPixmap(camera_icon)
+        kamera_ikon = kamera_ikon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        kamera_ikon_etiket.setPixmap(kamera_ikon)
     
-    camera_icon_label.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
-    message_layout.addWidget(camera_icon_label)
+    kamera_ikon_etiket.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
+    mesaj_duzen.addWidget(kamera_ikon_etiket)
     
     # Add information about click to start
-    info_text = QLabel(tr.get_text("camera_ready"))
-    info_text.setStyleSheet("color: white; font-size: 14pt; margin: 15px;")
-    info_text.setWordWrap(True)
-    info_text.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
-    message_layout.addWidget(info_text)
+    bilgi_metni = QLabel(tr.get_text("camera_ready"))
+    bilgi_metni.setStyleSheet("color: white; font-size: 14pt; margin: 15px;")
+    bilgi_metni.setWordWrap(True)
+    bilgi_metni.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
+    mesaj_duzen.addWidget(bilgi_metni)
     
     # Create a container widget for the message layout
-    message_widget = QWidget()
-    message_widget.setLayout(message_layout)
+    mesaj_widget = QWidget()
+    mesaj_widget.setLayout(mesaj_duzen)
     
     # Add the message widget to the camera feed layout
-    camera_feed_layout.addWidget(message_widget)
+    kamera_besleme_duzen.addWidget(mesaj_widget)
 
-def show_camera_permission_ui(parent, camera_feed_layout, grant_callback=None, deny_callback=None):
+def kamera_izin_arayuzunu_goster(ebeveyn, kamera_besleme_duzen, izin_ver_callback=None, izin_reddet_callback=None):
     """
     Kamera izin arayüzünü göster
     
     Args:
-        parent: Ana uygulama penceresi
-        camera_feed_layout: Kamera beslemesinin ekleneceği layout
-        grant_callback: İzin verildiğinde çağrılacak fonksiyon
-        deny_callback: İzin reddedildiğinde çağrılacak fonksiyon
+        ebeveyn: Ana uygulama penceresi
+        kamera_besleme_duzen: Kamera beslemesinin ekleneceği layout
+        izin_ver_callback: İzin verildiğinde çağrılacak fonksiyon
+        izin_reddet_callback: İzin reddedildiğinde çağrılacak fonksiyon
     """
     # Clear any existing widgets in camera feed
-    for i in reversed(range(camera_feed_layout.count())): 
-        camera_feed_layout.itemAt(i).widget().setParent(None)
+    for i in reversed(range(kamera_besleme_duzen.count())): 
+        kamera_besleme_duzen.itemAt(i).widget().setParent(None)
     
     # Create permission layout
-    permission_layout = QVBoxLayout()
+    izin_duzen = QVBoxLayout()
     
     # Add camera icon - ikon yolunu güncelle
-    camera_icon_label = QLabel()
-    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'camera_icon.png')
-    camera_icon = QPixmap(icon_path)
-    if camera_icon.isNull():
+    kamera_ikon_etiket = QLabel()
+    ikon_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'camera_icon.png')
+    kamera_ikon = QPixmap(ikon_yolu)
+    if kamera_ikon.isNull():
         # If icon file doesn't exist, create a text placeholder
-        camera_icon_label.setText("📷")
-        camera_icon_label.setStyleSheet("font-size: 48pt; color: #4CAF50;")
+        kamera_ikon_etiket.setText("📷")
+        kamera_ikon_etiket.setStyleSheet("font-size: 48pt; color: #4CAF50;")
     else:
         # Scale icon to appropriate size - Fix Qt constants
-        camera_icon = camera_icon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        camera_icon_label.setPixmap(camera_icon)
+        kamera_ikon = kamera_ikon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        kamera_ikon_etiket.setPixmap(kamera_ikon)
     
-    camera_icon_label.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
-    permission_layout.addWidget(camera_icon_label)
+    kamera_ikon_etiket.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
+    izin_duzen.addWidget(kamera_ikon_etiket)
     
     # Add permission text
-    permission_text = QLabel(tr.get_text("camera_permission_text"))
-    permission_text.setStyleSheet("color: white; font-size: 12pt; margin: 15px;")
-    permission_text.setWordWrap(True)
-    permission_text.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
-    permission_layout.addWidget(permission_text)
+    izin_metni = QLabel(tr.get_text("camera_permission_text"))
+    izin_metni.setStyleSheet("color: white; font-size: 12pt; margin: 15px;")
+    izin_metni.setWordWrap(True)
+    izin_metni.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
+    izin_duzen.addWidget(izin_metni)
     
     # Add buttons for permission
-    button_widget = QWidget()
-    button_layout = QHBoxLayout(button_widget)
+    buton_widget = QWidget()
+    buton_duzen = QHBoxLayout(buton_widget)
     
     # Grant permission button with enhanced hover effects
-    grant_button = QPushButton(tr.get_text("grant_permission"))
-    grant_button.setToolTip(tr.get_text("grant_permission_tooltip"))
-    grant_button.setStyleSheet("""
+    izin_ver_buton = QPushButton(tr.get_text("grant_permission"))
+    izin_ver_buton.setToolTip(tr.get_text("grant_permission_tooltip"))
+    izin_ver_buton.setStyleSheet("""
         QPushButton {
             background-color: #4CAF50;
             color: white;
@@ -202,13 +202,13 @@ def show_camera_permission_ui(parent, camera_feed_layout, grant_callback=None, d
             background-color: #43A047;
         }
     """)
-    if grant_callback:
-        grant_button.clicked.connect(grant_callback)
+    if izin_ver_callback:
+        izin_ver_buton.clicked.connect(izin_ver_callback)
     
     # Deny permission button with enhanced hover effects
-    deny_button = QPushButton(tr.get_text("deny_permission"))
-    deny_button.setToolTip(tr.get_text("deny_permission_tooltip"))
-    deny_button.setStyleSheet("""
+    izin_reddet_buton = QPushButton(tr.get_text("deny_permission"))
+    izin_reddet_buton.setToolTip(tr.get_text("deny_permission_tooltip"))
+    izin_reddet_buton.setStyleSheet("""
         QPushButton {
             background-color: #f44336;
             color: white;
@@ -223,13 +223,13 @@ def show_camera_permission_ui(parent, camera_feed_layout, grant_callback=None, d
             background-color: #E53935;
         }
     """)
-    if deny_callback:
-        deny_button.clicked.connect(deny_callback)
+    if izin_reddet_callback:
+        izin_reddet_buton.clicked.connect(izin_reddet_callback)
     
     # Add checkbox to remember decision with hover effect
-    remember_permission = QCheckBox(tr.get_text("remember_decision"))
-    remember_permission.setToolTip(tr.get_text("remember_decision_tooltip"))
-    remember_permission.setStyleSheet("""
+    izni_hatirla = QCheckBox(tr.get_text("remember_decision"))
+    izni_hatirla.setToolTip(tr.get_text("remember_decision_tooltip"))
+    izni_hatirla.setStyleSheet("""
         QCheckBox {
             color: white;
         }
@@ -237,18 +237,18 @@ def show_camera_permission_ui(parent, camera_feed_layout, grant_callback=None, d
             color: #2196F3;
         }
     """)
-    remember_permission.setChecked(True)
-    parent.remember_permission = remember_permission  # Ana pencereye referansı sakla
+    izni_hatirla.setChecked(True)
+    ebeveyn.izni_hatirla = izni_hatirla  # Ana pencereye referansı sakla
     
-    button_layout.addWidget(deny_button)
-    button_layout.addWidget(grant_button)
+    buton_duzen.addWidget(izin_reddet_buton)
+    buton_duzen.addWidget(izin_ver_buton)
     
-    permission_layout.addWidget(button_widget)
-    permission_layout.addWidget(remember_permission)
+    izin_duzen.addWidget(buton_widget)
+    izin_duzen.addWidget(izni_hatirla)
     
     # Create a container widget for the permission layout
-    permission_widget = QWidget()
-    permission_widget.setLayout(permission_layout)
+    izin_widget = QWidget()
+    izin_widget.setLayout(izin_duzen)
     
     # Add the permission widget to the camera feed layout
-    camera_feed_layout.addWidget(permission_widget)
+    kamera_besleme_duzen.addWidget(izin_widget)

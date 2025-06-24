@@ -1,6 +1,6 @@
 """
-ColorVisionAid (CVA) - Renk körlüğü yardımcı uygulaması
-Bu paket, CVA uygulamasının modüllerini barındırır.
+Proje V - Renk körlüğü yardımcı uygulaması
+Bu paket, Proje V uygulamasının modüllerini barındırır.
 
 Modüller:
 - main: Ana uygulama ve UI mantığı

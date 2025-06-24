@@ -3,23 +3,22 @@ class Translations:
     Manages translations for the ColorVisionAid application.
     Allows easy switching between different languages.
     """
-    
-    # Available languages
+      # Mevcut dillerin listesi
     LANGUAGES = {
         "en": "English",
         "tr": "Türkçe"
     }
     
-    def __init__(self, default_language="en"):
+    def __init__(self, varsayilan_dil="en"):
         """Initialize with default language"""
-        self.current_language = default_language
+        self.mevcut_dil = varsayilan_dil
         
-        # Dictionary containing all translations
-        self._translations = {
-            # Application title and main interface
+        # Tüm çevirileri içeren sözlük
+        self._ceviriler = {
+            # Uygulama başlığı ve durum mesajları
             "app_title": {
-                "en": "ColorVisionAid (CVA)",
-                "tr": "ColorVisionAid (CVA)"
+                "en": "Project V",
+                "tr": "Proje V"
             },
             "camera_initializing": {
                 "en": "Camera initializing...",
@@ -38,7 +37,7 @@ class Translations:
                 "tr": "Hazır"
             },
             
-            # Button labels
+            # Buton metinleri
             "start": {
                 "en": "Start",
                 "tr": "Başlat"
@@ -68,7 +67,7 @@ class Translations:
                 "tr": "Dışa Aktar"
             },
             
-            # Settings panel
+            # Ayarlar
             "color_detection": {
                 "en": "Color Detection",
                 "tr": "Renk Tespiti"
@@ -90,7 +89,7 @@ class Translations:
                 "tr": "Sarı Algıla"
             },
             
-            # Display settings
+            # Görüntü ayarları
             "display_settings": {
                 "en": "Display Settings",
                 "tr": "Görüntüleme Ayarları"
@@ -108,23 +107,23 @@ class Translations:
                 "tr": "Gösterim Modu:"
             },
             
-            # Language settings
+            # Dil ayarları
             "language": {
                 "en": "Language",
                 "tr": "Dil"
             },
             
-            # About section
+            # Hakkında
             "about": {
                 "en": "About",
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "ColorVisionAid (CVA)\nVersion 1.0.3\n\nDesigned to assist individuals\nwith color vision deficiency.",
-                "tr": "ColorVisionAid (CVA)\nSürüm 1.0.3\n\nRenk görme zorluğu yaşayan\nbireylere yardımcı olmak için\ntasarlanmıştır."
+                "en": "Project V\nVersion 1.0.3\n\nDesigned to assist individuals\nwith color vision deficiency.",
+                "tr": "Proje V\nSürüm 1.0.3\n\nSınırları kaldır, rengini belli et."
             },
             
-            # Gallery
+            # Galeri
             "gallery_title": {
                 "en": "Screenshot Gallery",
                 "tr": "Ekran Görüntüleri Galerisi"
@@ -138,7 +137,7 @@ class Translations:
                 "tr": "Henüz kaydedilmiş ekran görüntüsü yok."
             },
             
-            # Status messages
+            # Durum mesajları
             "camera_started": {
                 "en": "Camera started",
                 "tr": "Kamera başlatıldı"
@@ -160,7 +159,7 @@ class Translations:
                 "tr": "Ekran görüntüsü dışa aktarıldı: {}"
             },
             
-            # Dialog messages
+            # Diyalog metinleri
             "delete_confirmation": {
                 "en": "Delete Confirmation",
                 "tr": "Silme Onayı"
@@ -186,7 +185,7 @@ class Translations:
                 "tr": "Ekran Görüntüsünü Dışa Aktar"
             },
             
-            # Color names (for detection)
+            # Renk isimleri
             "red": {
                 "en": "Red",
                 "tr": "Kırmızı"
@@ -204,13 +203,13 @@ class Translations:
                 "tr": "Sarı"
             },
             
-            # Language change
+            # Dil değişikliği
             "language_changed": {
                 "en": "Language changed",
                 "tr": "Dil değiştirildi"
             },
             
-            # Permission dialog
+            # İzinler
             "camera_permission_title": {
                 "en": "Camera Permission",
                 "tr": "Kamera İzni"
@@ -220,7 +219,7 @@ class Translations:
                 "tr": "ColorVisionAid renkleri algılamak için kamera erişimine ihtiyaç duyar."
             },
             
-            # Camera permissions
+            # Kamera izin butonları
             "grant_permission": {
                 "en": "Allow Access",
                 "tr": "Erişime İzin Ver"
@@ -270,7 +269,7 @@ class Translations:
                 "tr": "Her seferinde sor"
             },
             
-            # Button tooltips
+            # Buton ipuçları
             "start_tooltip": {
                 "en": "Start the camera to begin detecting colors",
                 "tr": "Renk algılamaya başlamak için kamerayı başlatın"
@@ -288,7 +287,7 @@ class Translations:
                 "tr": "Kayıtlı ekran görüntülerinizi görüntüleyin"
             },
             
-            # Checkbox tooltips
+            # Seçenek kutusu ipuçları
             "red_checkbox_tooltip": {
                 "en": "Enable red color detection",
                 "tr": "Kırmızı renk algılamayı etkinleştir"
@@ -306,7 +305,7 @@ class Translations:
                 "tr": "Sarı renk algılamayı etkinleştir"
             },
             
-            # Slider tooltips
+            # Kaydırma çubuğu ipuçları
             "sensitivity_tooltip": {
                 "en": "Adjust how sensitive the detection is",
                 "tr": "Algılamanın ne kadar hassas olacağını ayarlayın"
@@ -331,32 +330,37 @@ class Translations:
             },
             "remember_decision_tooltip": {
                 "en": "Save this choice for future sessions",
-                "tr": "Bu seçimi gelecek oturumlar için kaydet"
-            }
+                "tr": "Bu seçimi gelecek oturumlar için kaydet"            }
         }
     
-    def set_language(self, language_code):
-        if language_code in self.LANGUAGES:
-            self.current_language = language_code
+    def dil_ayarla(self, dil_kodu):
+        if dil_kodu in self.LANGUAGES:
+            self.mevcut_dil = dil_kodu
             return True
         return False
     
-    def get_text(self, key, *args):
-        if key in self._translations and self.current_language in self._translations[key]:
-            text = self._translations[key][self.current_language]
-            if args:
-                return text.format(*args)
-            return text
-        
+    def metin_al(self, anahtar, *argumanlar):
+        if anahtar in self._ceviriler and self.mevcut_dil in self._ceviriler[anahtar]:
+            metin = self._ceviriler[anahtar][self.mevcut_dil]
+            if argumanlar:
+                return metin.format(*argumanlar)
+            return metin        
         # Fallback to English if translation not found
-        if key in self._translations and "en" in self._translations[key]:
-            text = self._translations[key]["en"]
-            if args:
-                return text.format(*args)
-            return text
+        if anahtar in self._ceviriler and "en" in self._ceviriler[anahtar]:
+            metin = self._ceviriler[anahtar]["en"]
+            if argumanlar:
+                return metin.format(*argumanlar)
+            return metin
         
         # Return the key as a last resort
-        return key
+        return anahtar
+    
+    # Eski metotlar ile uyumluluk için alias'lar
+    def set_language(self, dil_kodu):
+        return self.dil_ayarla(dil_kodu)
+    
+    def get_text(self, anahtar, *argumanlar):
+        return self.metin_al(anahtar, *argumanlar)
 
 # Create a global instance for easy access
 translator = Translations()

@@ -1,16 +1,16 @@
 import cv2
 import numpy as np
-from utils import draw_text_with_utf8
+from .utils import draw_text_with_utf8
 
 class ColorDetector:
     def __init__(self):
         # Renk aralıkları tanımla
-        self.initialize_color_ranges()
-        self.min_contour_area = 500
+        self.renk_araliklarini_baslat()
+        self.min_kontur_alani = 500
         
-    def initialize_color_ranges(self):
+    def renk_araliklarini_baslat(self):
         """HSV renk uzayında tespit edilecek renklerin aralıklarını tanımlar"""
-        self.color_ranges = {
+        self.renk_araliklari = {
             'red1': (
                 np.array([0, 150, 70]),
                 np.array([10, 255, 255])
@@ -33,23 +33,23 @@ class ColorDetector:
             )
         }
     
-    def process_frame(self, frame, selected_colors, sensitivity=5, contrast=5, color_translations=None):
+    def kareyi_isle(self, kare, secili_renkler, hassasiyet=5, kontrast=5, renk_cevirileri=None):
         """
         Video karesini işler ve seçilen renkleri tespit eder
         
         Args:
-            frame: OpenCV BGR formatında video karesi
-            selected_colors: Dictionary (key=renk adı, value=bool seçili mi)
-            sensitivity: 1-10 arasında duyarlılık değeri
-            contrast: 1-10 arasında kontrast değeri
-            color_translations: Çevrilen renk isimlerini içeren sözlük
+            kare: OpenCV BGR formatında video karesi
+            secili_renkler: Dictionary (key=renk adı, value=bool seçili mi)
+            hassasiyet: 1-10 arasında duyarlılık değeri
+            kontrast: 1-10 arasında kontrast değeri
+            renk_cevirileri: Çevrilen renk isimlerini içeren sözlük
             
         Returns:
             İşlenmiş video karesi
         """
         # Boş çeviri sözlüğü oluştur
-        if color_translations is None:
-            color_translations = {
+        if renk_cevirileri is None:
+            renk_cevirileri = {
                 'red': 'Red',
                 'green': 'Green',
                 'blue': 'Blue',
@@ -57,89 +57,89 @@ class ColorDetector:
             }
         
         # BGR'dan HSV'ye dönüştürme
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(kare, cv2.COLOR_BGR2HSV)
         
         # Seçilen renkler için maskeler oluştur
-        masks = {}
-        if selected_colors.get('red', False):
-            mask_red1 = cv2.inRange(hsv, self.color_ranges['red1'][0], self.color_ranges['red1'][1])
-            mask_red2 = cv2.inRange(hsv, self.color_ranges['red2'][0], self.color_ranges['red2'][1])
-            masks['red'] = mask_red1 | mask_red2
+        maskeler = {}
+        if secili_renkler.get('red', False):
+            kirmizi_maske1 = cv2.inRange(hsv, self.renk_araliklari['red1'][0], self.renk_araliklari['red1'][1])
+            kirmizi_maske2 = cv2.inRange(hsv, self.renk_araliklari['red2'][0], self.renk_araliklari['red2'][1])
+            maskeler['red'] = kirmizi_maske1 | kirmizi_maske2
         
-        if selected_colors.get('green', False):
-            masks['green'] = cv2.inRange(hsv, self.color_ranges['green'][0], self.color_ranges['green'][1])
+        if secili_renkler.get('green', False):
+            maskeler['green'] = cv2.inRange(hsv, self.renk_araliklari['green'][0], self.renk_araliklari['green'][1])
         
-        if selected_colors.get('blue', False):
-            masks['blue'] = cv2.inRange(hsv, self.color_ranges['blue'][0], self.color_ranges['blue'][1])
+        if secili_renkler.get('blue', False):
+            maskeler['blue'] = cv2.inRange(hsv, self.renk_araliklari['blue'][0], self.renk_araliklari['blue'][1])
         
-        if selected_colors.get('yellow', False):
-            masks['yellow'] = cv2.inRange(hsv, self.color_ranges['yellow'][0], self.color_ranges['yellow'][1])
+        if secili_renkler.get('yellow', False):
+            maskeler['yellow'] = cv2.inRange(hsv, self.renk_araliklari['yellow'][0], self.renk_araliklari['yellow'][1])
         
         # Tüm maskeleri birleştir
-        mask_combined = np.zeros_like(hsv[:, :, 0])
-        for color, mask in masks.items():
-            mask_combined = mask_combined | mask
+        birlestirilmis_maske = np.zeros_like(hsv[:, :, 0])
+        for renk, maske in maskeler.items():
+            birlestirilmis_maske = birlestirilmis_maske | maske
         
         # Maskeleri genişlet
-        kernel = np.ones((5, 5), np.uint8)
-        mask_combined = cv2.dilate(mask_combined, kernel, iterations=2)
+        cekirdek = np.ones((5, 5), np.uint8)
+        birlestirilmis_maske = cv2.dilate(birlestirilmis_maske, cekirdek, iterations=2)
         
         # Renkleri filtrele
-        result = cv2.bitwise_and(frame, frame, mask=mask_combined)
+        sonuc = cv2.bitwise_and(kare, kare, mask=birlestirilmis_maske)
         
         # Maskelenmiş renklerin canlılığını duyarlılığa göre ayarla
-        sensitivity = sensitivity * 20 + 40  # 1-10 değerlerini 60-240 aralığına eşle
-        result[np.where((result != [0, 0, 0]).all(axis=2))] = [sensitivity, sensitivity, sensitivity]
+        hassasiyet = hassasiyet * 20 + 40  # 1-10 değerlerini 60-240 aralığına eşle
+        sonuc[np.where((sonuc != [0, 0, 0]).all(axis=2))] = [hassasiyet, hassasiyet, hassasiyet]
         
         # Orijinal kareyi koyulaştır
-        contrast_value = contrast / 10  # 1-10 değerlerini 0.1-1.0 aralığına eşle
-        darkened_frame = cv2.addWeighted(frame, contrast_value, np.zeros_like(frame), 1-contrast_value, 0)
+        kontrast_degeri = kontrast / 10  # 1-10 değerlerini 0.1-1.0 aralığına eşle
+        koyulastirilmis_kare = cv2.addWeighted(kare, kontrast_degeri, np.zeros_like(kare), 1-kontrast_degeri, 0)
         
         # Sonuçları birleştir
-        combined_result = cv2.addWeighted(darkened_frame, 0.7, result, 0.3, 0)
+        birlestirilmis_sonuc = cv2.addWeighted(koyulastirilmis_kare, 0.7, sonuc, 0.3, 0)
         
         # BGR formatında renk değerleri
-        colors = {
-            'red': (0, 0, 255) if selected_colors.get('red', False) else None,
-            'green': (0, 255, 0) if selected_colors.get('green', False) else None,
-            'blue': (255, 0, 0) if selected_colors.get('blue', False) else None,
-            'yellow': (0, 255, 255) if selected_colors.get('yellow', False) else None
+        renkler = {
+            'red': (0, 0, 255) if secili_renkler.get('red', False) else None,
+            'green': (0, 255, 0) if secili_renkler.get('green', False) else None,
+            'blue': (255, 0, 0) if secili_renkler.get('blue', False) else None,
+            'yellow': (0, 255, 255) if secili_renkler.get('yellow', False) else None
         }
         
         # Önce dikdörtgenleri çiz
-        for color_name, mask in masks.items():
-            if colors[color_name] is not None:
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for contour in contours:
-                    if cv2.contourArea(contour) > self.min_contour_area:
-                        x, y, w, h = cv2.boundingRect(contour)
+        for renk_adi, maske in maskeler.items():
+            if renkler[renk_adi] is not None:
+                konturlar, _ = cv2.findContours(maske, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                for kontur in konturlar:
+                    if cv2.contourArea(kontur) > self.min_kontur_alani:
+                        x, y, g, y_yukseklik = cv2.boundingRect(kontur)
                         # Dikdörtgen çiz
-                        cv2.rectangle(combined_result, (x, y), (x + w, y + h), colors[color_name], 2)
+                        cv2.rectangle(birlestirilmis_sonuc, (x, y), (x + g, y + y_yukseklik), renkler[renk_adi], 2)
         
         # Sonra metni çiz
-        for color_name, mask in masks.items():
-            if colors[color_name] is not None:
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for contour in contours:
-                    if cv2.contourArea(contour) > self.min_contour_area:
-                        x, y, w, h = cv2.boundingRect(contour)
-                        mask_contour = mask[y:y+h, x:x+w]
-                        contour_area = cv2.contourArea(contour)
-                        mask_area = np.sum(mask_contour > 0)
-                        accuracy = min((mask_area / contour_area) * 100, 100)
+        for renk_adi, maske in maskeler.items():
+            if renkler[renk_adi] is not None:
+                konturlar, _ = cv2.findContours(maske, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                for kontur in konturlar:
+                    if cv2.contourArea(kontur) > self.min_kontur_alani:
+                        x, y, g, y_yukseklik = cv2.boundingRect(kontur)
+                        maske_kontur = maske[y:y+y_yukseklik, x:x+g]
+                        kontur_alani = cv2.contourArea(kontur)
+                        maske_alani = np.sum(maske_kontur > 0)
+                        dogruluk = min((maske_alani / kontur_alani) * 100, 100)
                         
                         # Renk adı ve doğruluk yüzdesi metni oluştur
-                        text = f"{color_translations.get(color_name, color_name)} ({accuracy:.1f}%)"
+                        metin = f"{renk_cevirileri.get(renk_adi, renk_adi)} ({dogruluk:.1f}%)"
                         
                         # UTF-8 metin çizim fonksiyonunu kullan
-                        combined_result = draw_text_with_utf8(
-                            combined_result,
-                            text,
+                        birlestirilmis_sonuc = draw_text_with_utf8(
+                            birlestirilmis_sonuc,
+                            metin,
                             (x, y - 25),  # Metni dikdörtgenin üzerinde konumlandır
-                            text_color=colors[color_name],
+                            text_color=renkler[renk_adi],
                             font_size=16,
                             stroke_color=(0, 0, 0),  # Siyah dış çizgi
                             stroke_width=1
                         )
                             
-        return combined_result
+        return birlestirilmis_sonuc

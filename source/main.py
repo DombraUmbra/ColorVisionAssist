@@ -10,36 +10,36 @@ from PyQt5.QtGui import QImage, QPixmap, QIcon
 from .translations import translator as tr
 from .gallery import ScreenshotGallery
 from .color_detection import ColorDetector
-from .camera import CameraManager, create_camera_ui, show_camera_permission_ui
+from .camera import CameraManager, kamera_arayuzu_olustur, kamera_izin_arayuzunu_goster
 from .utils import draw_text_with_utf8
-from .ui_components import (create_camera_controls, create_color_detection_group,
-                          create_display_settings_group, create_camera_settings_group,
-                          create_language_group, create_about_group, apply_dark_theme)
+from .ui_components import (kamera_kontrolleri_olustur, renk_algilama_grubu_olustur,
+                          gorunum_ayarlari_grubu_olustur, kamera_ayarlari_grubu_olustur,
+                          dil_grubu_olustur, hakkinda_grubu_olustur, koyu_tema_uygula)
 
 class ColorVisionAid(QMainWindow):
     def __init__(self):
         super().__init__()
         
         # Ayarları yükle
-        self.settings = QSettings("ColorVisionAid", "CVA")
-        language = self.settings.value("language", "en")
-        tr.set_language(language)
+        self.ayarlar = QSettings("ColorVisionAid", "CVA")
+        dil = self.ayarlar.value("language", "en")
+        tr.set_language(dil)
         
         # Kullanıcı tercihlerini yükle
-        self.camera_permission = self.settings.value("camera_permission", "ask")  # "granted", "denied", "ask"
+        self.kamera_izni = self.ayarlar.value("camera_permission", "ask")  # "granted", "denied", "ask"
         
         # Camera manager ve color detector oluştur
-        self.camera_manager = CameraManager(self)
-        self.color_detector = ColorDetector()
+        self.kamera_yoneticisi = CameraManager(self)
+        self.renk_algilayici = ColorDetector()
         
         # UI kurulumu
-        self.setup_ui()
+        self.arayuzu_kur()
         
         # Timer for updating the camera feed
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
+        self.zamanlayici = QTimer()
+        self.zamanlayici.timeout.connect(self.kareyi_guncelle)
 
-    def setup_ui(self):
+    def arayuzu_kur(self):
         """UI bileşenlerini ve düzeni oluştur"""
         # Window setup
         self.setWindowTitle(tr.get_text("app_title"))
@@ -47,195 +47,189 @@ class ColorVisionAid(QMainWindow):
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icons', 'app_icon.png')))
         
         # Main widget and layout
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.main_layout = QHBoxLayout(self.central_widget)
+        self.merkezi_widget = QWidget()
+        self.setCentralWidget(self.merkezi_widget)
+        self.ana_duzen = QHBoxLayout(self.merkezi_widget)
         
         # Kamera görünüm alanı
-        self.setup_camera_view()
+        self.kamera_gorunumunu_kur()
         
         # Ayarlar paneli
-        self.setup_settings_panel()
+        self.ayarlar_panelini_kur()
         
         # Ana bileşenleri düzene ekle
-        self.main_layout.addWidget(self.camera_container, 7)
-        self.main_layout.addWidget(self.settings_panel, 3)
+        self.ana_duzen.addWidget(self.kamera_konteyner, 7)
+        self.ana_duzen.addWidget(self.ayarlar_paneli, 3)
         
         # Durum çubuğu
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage(tr.get_text("ready"))
-        
-        # Stil temasını uygula
-        apply_dark_theme(self)
+        self.durum_cubugu = QStatusBar()
+        self.setStatusBar(self.durum_cubugu)
+        self.durum_cubugu.showMessage(tr.get_text("ready"))
+          # Stil temasını uygula
+        koyu_tema_uygula(self)
 
-    def setup_camera_view(self):
+    def kamera_gorunumunu_kur(self):
         """Kamera görüntü alanını oluştur"""
         # Ana kamera konteyneri
-        self.camera_container = QWidget()
-        self.camera_layout = QVBoxLayout(self.camera_container)
+        self.kamera_konteyner = QWidget()
+        self.kamera_duzen = QVBoxLayout(self.kamera_konteyner)
         
         # Kamera beslemesi için konteyner
-        self.camera_feed_container = QWidget()
-        self.camera_feed_container.setStyleSheet("background-color: #222; border-radius: 10px;")
-        self.camera_feed_layout = QVBoxLayout(self.camera_feed_container)
-        self.camera_feed_layout.setContentsMargins(20, 20, 20, 20)
+        self.kamera_besleme_konteyner = QWidget()
+        self.kamera_besleme_konteyner.setStyleSheet("background-color: #222; border-radius: 10px;")
+        self.kamera_besleme_duzen = QVBoxLayout(self.kamera_besleme_konteyner)
+        self.kamera_besleme_duzen.setContentsMargins(20, 20, 20, 20)
+          # Kamera mesajını göster
+        kamera_arayuzu_olustur(self, self.kamera_besleme_duzen)
         
-        # Kamera mesajını göster
-        create_camera_ui(self, self.camera_feed_layout)
-        
-        self.camera_layout.addWidget(self.camera_feed_container)
-        
-        # Kamera kontrol butonları - UI Components modülünü kullan
-        self.camera_layout.addLayout(create_camera_controls(self))
+        self.kamera_duzen.addWidget(self.kamera_besleme_konteyner)
+          # Kamera kontrol butonları - UI Components modülünü kullan
+        self.kamera_duzen.addLayout(kamera_kontrolleri_olustur(self))
 
-    def setup_settings_panel(self):
+    def ayarlar_panelini_kur(self):
         """Ayarlar panelini oluştur"""
-        self.settings_panel = QWidget()
-        self.settings_panel.setMaximumWidth(300)
-        self.settings_layout = QVBoxLayout(self.settings_panel)
-        
-        # UI Components modülünden grupları oluştur
-        self.color_group = create_color_detection_group(self)
-        self.display_group = create_display_settings_group(self)
-        self.camera_settings_group = create_camera_settings_group(self)
-        self.language_group = create_language_group(self)
-        self.about_group = create_about_group(self)
+        self.ayarlar_paneli = QWidget()
+        self.ayarlar_paneli.setMaximumWidth(300)
+        self.ayarlar_duzen = QVBoxLayout(self.ayarlar_paneli)
+          # UI Components modülünden grupları oluştur
+        self.renk_grubu = renk_algilama_grubu_olustur(self)
+        self.gorunum_grubu = gorunum_ayarlari_grubu_olustur(self)
+        self.kamera_ayarlari_grubu = kamera_ayarlari_grubu_olustur(self)
+        self.dil_grubu = dil_grubu_olustur(self)
+        self.hakkinda_grubu = hakkinda_grubu_olustur(self)
         
         # Ayar gruplarını panele ekle
-        self.settings_layout.addWidget(self.color_group)
-        self.settings_layout.addWidget(self.display_group)
-        self.settings_layout.addWidget(self.camera_settings_group)
-        self.settings_layout.addWidget(self.language_group)
-        self.settings_layout.addWidget(self.about_group)
-        self.settings_layout.addStretch()
+        self.ayarlar_duzen.addWidget(self.renk_grubu)
+        self.ayarlar_duzen.addWidget(self.gorunum_grubu)
+        self.ayarlar_duzen.addWidget(self.kamera_ayarlari_grubu)
+        self.ayarlar_duzen.addWidget(self.dil_grubu)
+        self.ayarlar_duzen.addWidget(self.hakkinda_grubu)
+        self.ayarlar_duzen.addStretch()
 
-    def change_language(self, index):
+    def dil_degistir(self, indeks):
         """Uygulama dilini değiştir"""
-        language_code = self.language_combo.itemData(index)
-        if tr.set_language(language_code):
+        dil_kodu = self.dil_combo.itemData(indeks)
+        if tr.set_language(dil_kodu):
             # Dil ayarını kaydet
-            self.settings.setValue("language", language_code)
+            self.ayarlar.setValue("language", dil_kodu)
             
             # Görünür elemanların dilini güncelle
-            self.update_ui_language()
+            self.arayuz_dilini_guncelle()
             
             # Durum mesajını göster
-            self.status_bar.showMessage(tr.get_text("language_changed"))
+            self.durum_cubugu.showMessage(tr.get_text("language_changed"))
     
-    def update_ui_language(self):
+    def arayuz_dilini_guncelle(self):
         """UI elemanlarını yeni dile göre güncelle"""
         # Pencere başlığını güncelle
         self.setWindowTitle(tr.get_text("app_title"))
         
         # Butonları güncelle
-        self.snapshot_button.setText(tr.get_text("take_screenshot"))
-        self.gallery_button.setText(tr.get_text("gallery"))
+        self.ekran_goruntusu_buton.setText(tr.get_text("take_screenshot"))
+        self.galeri_buton.setText(tr.get_text("gallery"))
         
         # Kamera butonunu güncelle
-        if self.camera_manager.camera_on:
-            self.toggle_camera_button.setText(tr.get_text("stop"))
-            self.toggle_camera_button.setToolTip(tr.get_text("stop_tooltip"))
+        if self.kamera_yoneticisi.kamera_acik:
+            self.kamera_acma_kapama_buton.setText(tr.get_text("stop"))
+            self.kamera_acma_kapama_buton.setToolTip(tr.get_text("stop_tooltip"))
         else:
-            self.toggle_camera_button.setText(tr.get_text("start"))
-            self.toggle_camera_button.setToolTip(tr.get_text("start_tooltip"))
+            self.kamera_acma_kapama_buton.setText(tr.get_text("start"))
+            self.kamera_acma_kapama_buton.setToolTip(tr.get_text("start_tooltip"))
 
         # Grupları güncelle
-        self.color_group.setTitle(tr.get_text("color_detection"))
-        self.display_group.setTitle(tr.get_text("display_settings"))
-        self.camera_settings_group.setTitle(tr.get_text("camera_settings"))
-        self.language_group.setTitle(tr.get_text("language"))
-        self.about_group.setTitle(tr.get_text("about"))
+        self.renk_grubu.setTitle(tr.get_text("color_detection"))
+        self.gorunum_grubu.setTitle(tr.get_text("display_settings"))
+        self.kamera_ayarlari_grubu.setTitle(tr.get_text("camera_settings"))
+        self.dil_grubu.setTitle(tr.get_text("language"))
+        self.hakkinda_grubu.setTitle(tr.get_text("about"))
         
         # Onay kutularını güncelle
-        self.red_checkbox.setText(tr.get_text("detect_red"))
-        self.green_checkbox.setText(tr.get_text("detect_green"))
-        self.blue_checkbox.setText(tr.get_text("detect_blue"))
-        self.yellow_checkbox.setText(tr.get_text("detect_yellow"))
+        self.kirmizi_onay_kutu.setText(tr.get_text("detect_red"))
+        self.yesil_onay_kutu.setText(tr.get_text("detect_green"))
+        self.mavi_onay_kutu.setText(tr.get_text("detect_blue"))
+        self.sari_onay_kutu.setText(tr.get_text("detect_yellow"))
         
         # Etiketleri güncelle
-        self.detection_sensitivity_label.setText(tr.get_text("detection_sensitivity"))
-        self.contrast_label.setText(tr.get_text("contrast"))
-        self.display_mode_label.setText(tr.get_text("display_mode"))
-        self.camera_info_label.setText(tr.get_text("camera_settings_info"))
-        self.about_label.setText(tr.get_text("about_text"))
-        self.reset_permission_button.setText(tr.get_text("reset_camera_permission"))
+        self.algilama_hassasiyet_etiket.setText(tr.get_text("detection_sensitivity"))
+        self.kontrast_etiket.setText(tr.get_text("contrast"))
+        self.gorunum_modu_etiket.setText(tr.get_text("display_mode"))
+        self.kamera_bilgi_etiket.setText(tr.get_text("camera_settings_info"))
+        self.hakkinda_etiket.setText(tr.get_text("about_text"))
+        self.izin_sifirlama_buton.setText(tr.get_text("reset_camera_permission"))
         
         # İzin durumunu güncelle
-        permission_status_text = ""
-        if self.camera_permission == "granted":
-            permission_status_text = tr.get_text("permission_status_granted")
-        elif self.camera_permission == "denied":
-            permission_status_text = tr.get_text("permission_status_denied")
+        izin_durum_metni = ""
+        if self.kamera_izni == "granted":
+            izin_durum_metni = tr.get_text("permission_status_granted")
+        elif self.kamera_izni == "denied":
+            izin_durum_metni = tr.get_text("permission_status_denied")
         else:
-            permission_status_text = tr.get_text("permission_status_ask")
-        self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
+            izin_durum_metni = tr.get_text("permission_status_ask")
+        self.izin_durum_etiket.setText(f"{tr.get_text('current_permission_status')}: {izin_durum_metni}")
         
         # Durum çubuğunu güncelle
-        if not self.camera_manager.camera_on:
-            self.status_bar.showMessage(tr.get_text("ready"))
-        
-        # Kamera görüntüsü açık değilse, başlangıç mesajını güncelle
-        if not self.camera_manager.camera_on:
-            create_camera_ui(self, self.camera_feed_layout)
+        if not self.kamera_yoneticisi.kamera_acik:
+            self.durum_cubugu.showMessage(tr.get_text("ready"))
+          # Kamera görüntüsü açık değilse, başlangıç mesajını güncelle
+        if not self.kamera_yoneticisi.kamera_acik:
+            kamera_arayuzu_olustur(self, self.kamera_besleme_duzen)
 
-    def reset_camera_permission(self):
+    def kamera_iznini_sifirla(self):
         """Kaydedilmiş kamera izinlerini sıfırla"""
-        self.camera_permission = "ask"
-        self.settings.setValue("camera_permission", "ask")
-        self.status_bar.showMessage(tr.get_text("permission_reset"))
+        self.kamera_izni = "ask"
+        self.ayarlar.setValue("camera_permission", "ask")
+        self.durum_cubugu.showMessage(tr.get_text("permission_reset"))
         
         # İzin durumu göstergesini güncelle
-        self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_ask')}")
+        self.izin_durum_etiket.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_ask')}")
 
-    def on_camera_permission_granted(self):
+    def kamera_izni_verildiginde(self):
         """Kamera izni verildiğinde yapılacaklar"""
         # İzin tercihini kaydet
-        if hasattr(self, 'remember_permission') and self.remember_permission.isChecked():
-            self.camera_permission = "granted"
-            self.settings.setValue("camera_permission", "granted")
+        if hasattr(self, 'izni_hatirla') and self.izni_hatirla.isChecked():
+            self.kamera_izni = "granted"
+            self.ayarlar.setValue("camera_permission", "granted")
             # İzin durumu göstergesini güncelle
-            self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_granted')}")
+            self.izin_durum_etiket.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_granted')}")
             
         # Kamera başlatma işlemine devam et
-        self.start_camera_process()
+        self.kamera_baslatma_islemi()
     
-    def on_camera_permission_denied(self):
+    def kamera_izni_reddedildiginde(self):
         """Kamera izni reddedildiğinde yapılacaklar"""
         # İzin tercihini kaydet
-        if hasattr(self, 'remember_permission') and self.remember_permission.isChecked():
-            self.camera_permission = "denied"
-            self.settings.setValue("camera_permission", "denied")
+        if hasattr(self, 'izni_hatirla') and self.izni_hatirla.isChecked():
+            self.kamera_izni = "denied"
+            self.ayarlar.setValue("camera_permission", "denied")
             # İzin durumu göstergesini güncelle
-            self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_denied')}")
-        
-        # Durum mesajını göster
-        self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
+            self.izin_durum_etiket.setText(f"{tr.get_text('current_permission_status')}: {tr.get_text('permission_status_denied')}")
+          # Durum mesajını göster
+        self.durum_cubugu.showMessage(tr.get_text("camera_permission_denied"))
         # Başlangıç mesajına dön
-        create_camera_ui(self, self.camera_feed_layout)
+        kamera_arayuzu_olustur(self, self.kamera_besleme_duzen)
 
-    def start_camera_process(self):
+    def kamera_baslatma_islemi(self):
         """İzin verildikten sonra kamerayı başlat"""
         # Kamera besleme düzenindeki tüm widget'ları temizle
-        for i in reversed(range(self.camera_feed_layout.count())): 
-            self.camera_feed_layout.itemAt(i).widget().setParent(None)
+        for i in reversed(range(self.kamera_besleme_duzen.count())): 
+            self.kamera_besleme_duzen.itemAt(i).widget().setParent(None)
             
         # Başlatma mesajını göster
-        initializing_label = QLabel(tr.get_text("camera_initializing"))
-        initializing_label.setStyleSheet("color: white; font-size: 12pt;")
-        initializing_label.setAlignment(Qt.AlignCenter)
-        self.camera_feed_layout.addWidget(initializing_label)
+        baslatiliyor_etiket = QLabel(tr.get_text("camera_initializing"))
+        baslatiliyor_etiket.setStyleSheet("color: white; font-size: 12pt;")
+        baslatiliyor_etiket.setAlignment(Qt.AlignCenter)
+        self.kamera_besleme_duzen.addWidget(baslatiliyor_etiket)
         QApplication.processEvents()  # UI'ı hemen güncelle
         
         # Şimdi kamerayı başlatmayı dene
-        if self.camera_manager.start_camera():
-            self.timer.start(33)  # ~30 FPS
-            self.status_bar.showMessage(tr.get_text("camera_started"))
+        if self.kamera_yoneticisi.kamera_baslat():
+            self.zamanlayici.start(33)  # ~30 FPS
+            self.durum_cubugu.showMessage(tr.get_text("camera_started"))
             
             # "Durdur" butonu görünümünü güncelle
-            self.toggle_camera_button.setText(tr.get_text("stop"))
-            self.toggle_camera_button.setToolTip(tr.get_text("stop_tooltip"))
-            self.toggle_camera_button.setStyleSheet("""
+            self.kamera_acma_kapama_buton.setText(tr.get_text("stop"))
+            self.kamera_acma_kapama_buton.setToolTip(tr.get_text("stop_tooltip"))
+            self.kamera_acma_kapama_buton.setStyleSheet("""
                 QPushButton {
                     background-color: #f44336;
                     color: white;
@@ -250,27 +244,25 @@ class ColorVisionAid(QMainWindow):
                     background-color: #E53935;
                 }
             """)
-            
-            # Ekran görüntüsü butonunu göster
-            self.snapshot_button.setVisible(True)
+              # Ekran görüntüsü butonunu göster
+            self.ekran_goruntusu_buton.setVisible(True)
         else:
-            self.status_bar.showMessage(tr.get_text("camera_start_failed"))
-            create_camera_ui(self, self.camera_feed_layout)  # Kamera başlatılamazsa başlangıç mesajını göster
+            self.durum_cubugu.showMessage(tr.get_text("camera_start_failed"))
+            kamera_arayuzu_olustur(self, self.kamera_besleme_duzen)  # Kamera başlatılamazsa başlangıç mesajını göster
 
-    def stop_camera(self):
+    def kamerayi_durdur(self):
         """Kamerayı durdur"""
-        if self.camera_manager.stop_camera():
-            self.timer.stop()
+        if self.kamera_yoneticisi.kamera_durdur():
+            self.zamanlayici.stop()
+              # Başlangıç mesajına dön
+            kamera_arayuzu_olustur(self, self.kamera_besleme_duzen)
             
-            # Başlangıç mesajına dön
-            create_camera_ui(self, self.camera_feed_layout)
-            
-            self.status_bar.showMessage(tr.get_text("camera_stopped"))
+            self.durum_cubugu.showMessage(tr.get_text("camera_stopped"))
             
             # "Başlat" butonu görünümünü güncelle
-            self.toggle_camera_button.setText(tr.get_text("start"))
-            self.toggle_camera_button.setToolTip(tr.get_text("start_tooltip"))
-            self.toggle_camera_button.setStyleSheet("""
+            self.kamera_acma_kapama_buton.setText(tr.get_text("start"))
+            self.kamera_acma_kapama_buton.setToolTip(tr.get_text("start_tooltip"))
+            self.kamera_acma_kapama_buton.setStyleSheet("""
                 QPushButton {
                     background-color: #4CAF50;
                     color: white;
@@ -287,35 +279,35 @@ class ColorVisionAid(QMainWindow):
             """)
             
             # Ekran görüntüsü butonunu gizle
-            self.snapshot_button.setVisible(False)
+            self.ekran_goruntusu_buton.setVisible(False)
 
-    def take_snapshot(self):
+    def ekran_goruntusu_al(self):
         """Ekran görüntüsü al"""
-        success, result = self.camera_manager.take_snapshot()
-        if success:
+        basarili, sonuc = self.kamera_yoneticisi.ekran_goruntusu_al()
+        if basarili:
             # Dosya yolunu göstermek için dosya adını path'den ayır
-            filename = os.path.basename(result)
-            self.status_bar.showMessage(tr.get_text("screenshot_saved", filename))
+            dosya_adi = os.path.basename(sonuc)
+            self.durum_cubugu.showMessage(tr.get_text("screenshot_saved", dosya_adi))
         else:
-            self.status_bar.showMessage(tr.get_text("screenshot_failed", result))
+            self.durum_cubugu.showMessage(tr.get_text("screenshot_failed", sonuc))
 
-    def open_gallery(self):
+    def galeri_ac(self):
         """Galeriyi aç"""
-        gallery = ScreenshotGallery(self)
-        gallery.exec_()
+        galeri = ScreenshotGallery(self)
+        galeri.exec_()
 
-    def update_frame(self):
-        ret, frame = self.camera_manager.get_frame()
-        if ret:
-            selected_colors = {
-                'red': self.red_checkbox.isChecked(),
-                'green': self.green_checkbox.isChecked(),
-                'blue': self.blue_checkbox.isChecked(),
-                'yellow': self.yellow_checkbox.isChecked()
+    def kareyi_guncelle(self):
+        sonuc, kare = self.kamera_yoneticisi.kare_al()
+        if sonuc:
+            secili_renkler = {
+                'red': self.kirmizi_onay_kutu.isChecked(),
+                'green': self.yesil_onay_kutu.isChecked(),
+                'blue': self.mavi_onay_kutu.isChecked(),
+                'yellow': self.sari_onay_kutu.isChecked()
             }
             
             # Çevrilmiş renk isimleri
-            color_translated = {
+            cevrilmis_renk_isimleri = {
                 'red': tr.get_text("red"),
                 'green': tr.get_text("green"),
                 'blue': tr.get_text("blue"),
@@ -323,55 +315,54 @@ class ColorVisionAid(QMainWindow):
             }
             
             # Renk detektörü ile kareyi işle
-            combined_result = self.color_detector.process_frame(
-                frame, 
-                selected_colors,
-                self.sensitivity_slider.value(),
-                self.contrast_slider.value(),
-                color_translated
+            birlestirilmis_sonuc = self.renk_algilayici.kareyi_isle(
+                kare, 
+                secili_renkler,
+                self.hassasiyet_kaydirici.value(),
+                self.kontrast_kaydirici.value(),
+                cevrilmis_renk_isimleri
             )
             
             # Sonucu QImage'a çevir ve göster
-            h, w, c = combined_result.shape
-            bytesPerLine = 3 * w
-            qImg = QImage(combined_result.data, w, h, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
+            y, g, k = birlestirilmis_sonuc.shape
+            satir_basina_bayt = 3 * g
+            qImg = QImage(birlestirilmis_sonuc.data, g, y, satir_basina_bayt, QImage.Format_RGB888).rgbSwapped()
             
             # Tüm mevcut widget'ları temizle
-            for i in reversed(range(self.camera_feed_layout.count())): 
-                self.camera_feed_layout.itemAt(i).widget().setParent(None)
+            for i in reversed(range(self.kamera_besleme_duzen.count())): 
+                self.kamera_besleme_duzen.itemAt(i).widget().setParent(None)
                 
             # Resim etiketini oluştur ve ekle
-            image_label = QLabel()
-            image_label.setPixmap(QPixmap.fromImage(qImg).scaled(
-                self.camera_feed_container.width() - 40,  # Kenar boşluklarını hesaba kat
-                self.camera_feed_container.height() - 40, 
+            resim_etiket = QLabel()
+            resim_etiket.setPixmap(QPixmap.fromImage(qImg).scaled(
+                self.kamera_besleme_konteyner.width() - 40,  # Kenar boşluklarını hesaba kat
+                self.kamera_besleme_konteyner.height() - 40, 
                 Qt.KeepAspectRatio
             ))
-            image_label.setAlignment(Qt.AlignCenter)
-            self.camera_feed_layout.addWidget(image_label)
+            resim_etiket.setAlignment(Qt.AlignCenter)
+            self.kamera_besleme_duzen.addWidget(resim_etiket)
     
-    def toggle_camera(self):
+    def kamerayi_ac_kapat(self):
         """Kamerayı açıp kapatma"""
-        if self.camera_manager.camera_on:
-            self.stop_camera()
+        if self.kamera_yoneticisi.kamera_acik:
+            self.kamerayi_durdur()
         else:
-            self.start_camera()
+            self.kamerayi_baslat()
             
-    def start_camera(self):
+    def kamerayi_baslat(self):
         """İzinleri kontrol ettikten sonra kamerayı başlat"""
-        if not self.camera_manager.camera_on:
+        if not self.kamera_yoneticisi.kamera_acik:
             # Kaydedilmiş izin tercihini kontrol et
-            if self.camera_permission == "granted":
+            if self.kamera_izni == "granted":
                 # İzin zaten verildi, kamerayı doğrudan başlat
-                self.start_camera_process()
-            elif self.camera_permission == "denied":
-                # İzin zaten reddedildi
-                self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
+                self.kamera_baslatma_islemi()
+            elif self.kamera_izni == "denied":                # İzin zaten reddedildi
+                self.durum_cubugu.showMessage(tr.get_text("camera_permission_denied"))
             else:
                 # İzin sor
-                show_camera_permission_ui(
+                kamera_izin_arayuzunu_goster(
                     self, 
-                    self.camera_feed_layout,
-                    self.on_camera_permission_granted,
-                    self.on_camera_permission_denied
+                    self.kamera_besleme_duzen,
+                    self.kamera_izni_verildiginde,
+                    self.kamera_izni_reddedildiginde
                 )

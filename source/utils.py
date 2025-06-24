@@ -4,55 +4,58 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 # Metin çizimi için UTF-8 destekli fonksiyon
-def draw_text_with_utf8(img, text, position, text_color=(255, 255, 255), font_size=20, stroke_color=(0, 0, 0), stroke_width=2):
+def utf8_destekli_metin_ciz(resim, metin, konum, metin_rengi=(255, 255, 255), font_boyutu=20, dis_cizgi_rengi=(0, 0, 0), dis_cizgi_kalinligi=2):
     """
     Draw text with UTF-8 support using PIL library
     
     Args:
-        img: OpenCV image (BGR format)
-        text: Text string to draw
-        position: (x, y) position
-        text_color: Text color as RGB tuple
-        font_size: Font size
-        stroke_color: Outline color
-        stroke_width: Outline width
+        resim: OpenCV image (BGR format)
+        metin: Text string to draw
+        konum: (x, y) position
+        metin_rengi: Text color as RGB tuple
+        font_boyutu: Font size
+        dis_cizgi_rengi: Outline color
+        dis_cizgi_kalinligi: Outline width
         
     Returns:
         OpenCV image with text drawn
     """
     # Convert the image from OpenCV BGR format to RGB for PIL
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(img_rgb)
-    draw = ImageDraw.Draw(pil_img)
+    resim_rgb = cv2.cvtColor(resim, cv2.COLOR_BGR2RGB)
+    pil_resim = Image.fromarray(resim_rgb)
+    cizim = ImageDraw.Draw(pil_resim)
     
     # Try to load a font that supports UTF-8
     try:
         # Try to find a suitable system font (Arial supports Turkish chars)
         if os.name == 'nt':  # Windows
-            font_path = "C:\\Windows\\Fonts\\arial.ttf"
+            font_yolu = "C:\\Windows\\Fonts\\arial.ttf"
         else:  # Linux/Mac
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+            font_yolu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
         
-        if not os.path.exists(font_path):
+        if not os.path.exists(font_yolu):
             # Fallback to default
             font = ImageFont.load_default()
         else:
-            font = ImageFont.truetype(font_path, font_size)
+            font = ImageFont.truetype(font_yolu, font_boyutu)
     except IOError:
         font = ImageFont.load_default()
     
     # Draw text with stroke (outline)
-    x, y = position
+    x, y = konum
     
     # Draw stroke (outline)
-    draw.text((x-stroke_width, y-stroke_width), text, font=font, fill=stroke_color)
-    draw.text((x+stroke_width, y-stroke_width), text, font=font, fill=stroke_color)
-    draw.text((x-stroke_width, y+stroke_width), text, font=font, fill=stroke_color)
-    draw.text((x+stroke_width, y+stroke_width), text, font=font, fill=stroke_color)
+    cizim.text((x-dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
+    cizim.text((x+dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
+    cizim.text((x-dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
+    cizim.text((x+dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
     
     # Draw the main text
-    draw.text(position, text, font=font, fill=text_color)
+    cizim.text(konum, metin, font=font, fill=metin_rengi)
     
     # Convert back to OpenCV format (BGR)
-    img_with_text = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-    return img_with_text
+    metinli_resim = cv2.cvtColor(np.array(pil_resim), cv2.COLOR_RGB2BGR)
+    return metinli_resim
+
+# Eski fonksiyon adı ile uyumluluk için alias oluştur
+draw_text_with_utf8 = utf8_destekli_metin_ciz
