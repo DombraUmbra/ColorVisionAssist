@@ -12,9 +12,9 @@ def utf8_destekli_metin_ciz(resim, metin, konum, metin_rengi=(255, 255, 255), fo
         resim: OpenCV image (BGR format)
         metin: Text string to draw
         konum: (x, y) position
-        metin_rengi: Text color as RGB tuple
+        metin_rengi: Text color as BGR tuple (will be converted to RGB for PIL)
         font_boyutu: Font size
-        dis_cizgi_rengi: Outline color
+        dis_cizgi_rengi: Outline color as BGR tuple (will be converted to RGB for PIL)
         dis_cizgi_kalinligi: Outline width
         
     Returns:
@@ -24,6 +24,11 @@ def utf8_destekli_metin_ciz(resim, metin, konum, metin_rengi=(255, 255, 255), fo
     resim_rgb = cv2.cvtColor(resim, cv2.COLOR_BGR2RGB)
     pil_resim = Image.fromarray(resim_rgb)
     cizim = ImageDraw.Draw(pil_resim)
+    
+    # Convert BGR colors to RGB for PIL
+    # OpenCV uses BGR format, PIL uses RGB format
+    metin_rengi_rgb = (metin_rengi[2], metin_rengi[1], metin_rengi[0])  # BGR to RGB
+    dis_cizgi_rengi_rgb = (dis_cizgi_rengi[2], dis_cizgi_rengi[1], dis_cizgi_rengi[0])  # BGR to RGB
     
     # Try to load a font that supports UTF-8
     try:
@@ -43,15 +48,14 @@ def utf8_destekli_metin_ciz(resim, metin, konum, metin_rengi=(255, 255, 255), fo
     
     # Draw text with stroke (outline)
     x, y = konum
+      # Draw stroke (outline) using RGB colors
+    cizim.text((x-dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
+    cizim.text((x+dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
+    cizim.text((x-dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
+    cizim.text((x+dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
     
-    # Draw stroke (outline)
-    cizim.text((x-dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
-    cizim.text((x+dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
-    cizim.text((x-dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
-    cizim.text((x+dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi)
-    
-    # Draw the main text
-    cizim.text(konum, metin, font=font, fill=metin_rengi)
+    # Draw the main text using RGB color
+    cizim.text(konum, metin, font=font, fill=metin_rengi_rgb)
     
     # Convert back to OpenCV format (BGR)
     metinli_resim = cv2.cvtColor(np.array(pil_resim), cv2.COLOR_RGB2BGR)
