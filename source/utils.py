@@ -48,7 +48,7 @@ def utf8_destekli_metin_ciz(resim, metin, konum, metin_rengi=(255, 255, 255), fo
     
     # Draw text with stroke (outline)
     x, y = konum
-      # Draw stroke (outline) using RGB colors
+    # Draw stroke (outline) using RGB colors
     cizim.text((x-dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
     cizim.text((x+dis_cizgi_kalinligi, y-dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)
     cizim.text((x-dis_cizgi_kalinligi, y+dis_cizgi_kalinligi), metin, font=font, fill=dis_cizgi_rengi_rgb)

@@ -1,258 +1,289 @@
 import cv2
 import numpy as np
-from .utils import draw_text_with_utf8
+from utils import draw_text_with_utf8
 
 class ColorDetector:
     def __init__(self):
-        # Renk aralıkları tanımla
-        self.renk_araliklarini_baslat()
-        self.min_kontur_alani = 80  # Gürültüyü azaltmak için artırıldı
-        # Temporal smoothing için önceki konturları sakla
-        self.onceki_konturlar = {}
-        self.kontur_kararliligi = 3  # Kaç frame boyunca kontur görülmeli
-        
-    def renk_araliklarini_baslat(self):
-        """HSV renk uzayında tespit edilecek renklerin aralıklarını tanımlar"""
+        # İyileştirilmiş renk aralıkları
         self.renk_araliklari = {
-            'red1': (
-                np.array([0, 100, 30]),  # Uzaktaki kırmızı nesneler için daha düşük eşik
-                np.array([10, 255, 255])
-            ),
-            'red2': (
-                np.array([170, 100, 30]),  # Uzaktaki kırmızı nesneler için daha düşük eşik
-                np.array([180, 255, 255])
-            ),
-            'green': (
-                np.array([45, 40, 30]),  # Sarıdan ayrılması için daha dar aralık
-                np.array([75, 255, 255])  # Üst sınır düşürüldü
-            ),            
-            'blue': (
-                np.array([85, 60, 40]),  # Daha seçici eşikler (sadece gerçek maviler)
-                np.array([130, 255, 255])  # Aralık daraltıldı
-            ),            
-            'dark_blue': (
-                np.array([95, 40, 25]),  # Çok daha sınırlı aralık (sadece gerçek koyu maviler)
-                np.array([115, 120, 80])  # Dar aralık ve düşük değerler
-            ),
-            'yellow': (
-                np.array([15, 60, 40]),  # Yeşilden ayrılması için daha dar aralık
-                np.array([40, 255, 255])  # Üst sınır artırıldı
-            )
-        }
-    
-    def kareyi_isle(self, kare, secili_renkler, hassasiyet=5, kontrast=5, renk_cevirileri=None):
-        """
-        Video karesini işler ve seçilen renkleri tespit eder
-        
-        Args:
-            kare: OpenCV BGR formatında video karesi
-            secili_renkler: Dictionary (key=renk adı, value=bool seçili mi)
-            hassasiyet: 1-10 arasında duyarlılık değeri
-            kontrast: 1-10 arasında kontrast değeri
-            renk_cevirileri: Çevrilen renk isimlerini içeren sözlük
+            # TEN RENGİ - Çok geniş ama kararlı aralık
+            'skin': [
+                (np.array([0, 5, 25]), np.array([45, 95, 255])),        # Maksimum kapsayıcı ten rengi
+            ],
             
-        Returns:
-            İşlenmiş video karesi
+            # KIRMIZI - Kararlı algılama için optimize edilmiş aralık
+            'red': [
+                (np.array([0, 70, 45]), np.array([9, 255, 255])),        # Alt kırmızı (daha geniş, kararlı)
+                (np.array([171, 70, 45]), np.array([180, 255, 255]))     # Üst kırmızı (daha geniş, kararlı)
+            ],
+            
+            # YEŞİL - Maviden net ayrılan aralık
+            'green': [
+                (np.array([35, 40, 40]), np.array([75, 255, 255]))       # Daha dar ve yüksek kalite yeşil
+            ],
+            
+            # MAVİ - Yeşilden net ayrılan aralık
+            'blue': [
+                (np.array([85, 40, 40]), np.array([135, 255, 255]))      # Daha dar ve yüksek kalite mavi
+            ],
+            
+            # SARI - Geniş aralık (eski hali)
+            'yellow': [
+                (np.array([15, 30, 30]), np.array([35, 255, 255]))
+            ]
+        }
+        
+        # Basit minimum kontur alanları (tüm renkler için aynı)
+        self.min_alanlar = {
+            'skin': 100,    # Ten rengi için biraz daha büyük alan
+            'red': 60,      # Kırmızı da diğer renkler gibi
+            'green': 60, 
+            'blue': 40,
+            'yellow': 10
+        }
+
+        # Renk körlüğü türlerine göre optimal çerçeve/metin renkleri
+        self.renk_korlugu_eşlemeleri = {
+            'red_green': {  # Kırmızı-Yeşil renk körlüğü
+                'red': (255, 128, 0),      # Parlak mavi (BGR)
+                'green': (255, 0, 255),    # Parlak mor (BGR)
+                'blue': (0, 255, 255),     # Sarı (BGR)
+                'yellow': (0, 0, 255)      # Kırmızı (BGR)
+            },
+            'blue_yellow': {  # Mavi-Sarı renk körlüğü
+                'red': (0, 255, 0),        # Yeşil (BGR)
+                'green': (0, 0, 255),      # Kırmızı (BGR)
+                'blue': (0, 255, 255),     # Sarı (BGR)
+                'yellow': (0, 128, 0)      # Koyu yeşil (BGR)
+            },
+            'protanopia': {  # Protanopi (Kırmızı körlük)
+                'red': (255, 255, 0),      # Cyan (BGR)
+                'green': (255, 128, 0),    # Parlak mavi (BGR)
+                'blue': (0, 255, 255),     # Sarı (BGR)
+                'yellow': (128, 255, 0)    # Açık cyan (BGR)
+            },
+            'deuteranopia': {  # Deuteranopi (Yeşil körlük)
+                'red': (255, 128, 0),      # Parlak mavi (BGR)
+                'green': (255, 0, 128),    # Mor (BGR)
+                'blue': (0, 255, 255),     # Sarı (BGR)
+                'yellow': (255, 0, 255)    # Magenta (BGR)
+            },
+            'tritanopia': {  # Tritanopi (Mavi körlük)
+                'red': (0, 255, 0),        # Yeşil (BGR)
+                'green': (0, 0, 255),      # Kırmızı (BGR)
+                'blue': (0, 255, 0),       # Yeşil (BGR)
+                'yellow': (0, 128, 255)    # Turuncu (BGR)
+            },
+            'complete': {  # Tam renk körlüğü
+                'red': (255, 255, 255),    # Beyaz (BGR)
+                'green': (128, 128, 128),  # Gri (BGR)
+                'blue': (0, 0, 0),         # Siyah (BGR)
+                'yellow': (200, 200, 200)  # Açık gri (BGR)
+            }
+        }
+
+    def kareyi_isle(self, kare, secili_renkler, hassasiyet=5, kontrast=5, renk_cevirileri=None, ten_rengi_filtreleme=True, kararlilik_gelistirme=True, renk_korlugu_turu='red_green'):
         """
-        # Boş çeviri sözlüğü oluştur
+        İyileştirilmiş renk algılama + vurgulama sistemi
+        """
         if renk_cevirileri is None:
             renk_cevirileri = {
-                'red': 'Red',
-                'green': 'Green',
-                'blue': 'Blue',
-                'yellow': 'Yellow'
+                'skin': 'Ten Rengi',
+                'red': 'Kırmızı',
+                'green': 'Yeşil', 
+                'blue': 'Mavi',
+                'yellow': 'Sarı'
             }
-          # BGR'dan HSV'ye dönüştürme (öncesinde kontrast artırma)
-        # Uzaktaki nesneler için kontrast artırma
-        kare_kontrast = cv2.convertScaleAbs(kare, alpha=1.2, beta=10)
-        hsv = cv2.cvtColor(kare_kontrast, cv2.COLOR_BGR2HSV)
-          # Seçilen renkler için maskeler oluştur
-        maskeler = {}
         
-        if secili_renkler.get('red', False):
-            kirmizi_maske1 = cv2.inRange(hsv, self.renk_araliklari['red1'][0], self.renk_araliklari['red1'][1])
-            kirmizi_maske2 = cv2.inRange(hsv, self.renk_araliklari['red2'][0], self.renk_araliklari['red2'][1])
-            maskeler['red'] = kirmizi_maske1 | kirmizi_maske2
+        # Basit ön işleme (tüm renkler için aynı)
+        alpha = 1.0 + (kontrast - 5) * 0.15  # Etkili kontrast
+        kare_iyilesirilmis = cv2.convertScaleAbs(kare, alpha=alpha, beta=5)
         
-        if secili_renkler.get('green', False):
-            maskeler['green'] = cv2.inRange(hsv, self.renk_araliklari['green'][0], self.renk_araliklari['green'][1])
+        # HSV dönüşümü
+        hsv = cv2.cvtColor(kare_iyilesirilmis, cv2.COLOR_BGR2HSV)
         
-        if secili_renkler.get('blue', False):
-            mavi_maske1 = cv2.inRange(hsv, self.renk_araliklari['blue'][0], self.renk_araliklari['blue'][1])
-            mavi_maske2 = cv2.inRange(hsv, self.renk_araliklari['dark_blue'][0], self.renk_araliklari['dark_blue'][1])
-            
-            # Koyu mavi maskesini daha da filtrele (çok küçük alanları kaldır)
-            cekirdek_temizlik = np.ones((3, 3), np.uint8)
-            mavi_maske2 = cv2.morphologyEx(mavi_maske2, cv2.MORPH_OPEN, cekirdek_temizlik, iterations=2)
-            
-            maskeler['blue'] = mavi_maske1 | mavi_maske2
+        # Basit gürültü azaltma
+        hsv = cv2.bilateralFilter(hsv, 9, 75, 75)
+        hsv = cv2.medianBlur(hsv, 3)
         
-        if secili_renkler.get('yellow', False):
-            maskeler['yellow'] = cv2.inRange(hsv, self.renk_araliklari['yellow'][0], self.renk_araliklari['yellow'][1])
+        # Ten rengi maskesi hazırla (sadece kırmızıdan ayırt etmek için)
+        ten_maske = np.zeros(hsv.shape[:2], dtype=np.uint8)
+        for alt_sinir, ust_sinir in self.renk_araliklari['skin']:
+            ten_maske_temp = cv2.inRange(hsv, alt_sinir, ust_sinir)
+            ten_maske = cv2.bitwise_or(ten_maske, ten_maske_temp)
         
-        # Tüm maskeleri birleştir
-        birlestirilmis_maske = np.zeros_like(hsv[:, :, 0])
-        for renk, maske in maskeler.items():
-            birlestirilmis_maske = birlestirilmis_maske | maske
+        # VURGULAMA SİSTEMİ HAZIRLIĞI
+        # Arkaplan karartma için orijinal kareden başla
+        sonuc = kare.copy()
+        karartilmis_arkaplan = cv2.convertScaleAbs(kare, alpha=0.3, beta=0)  # %30 parlaklık
         
-        # Gürültü azaltma işlemleri (uzaktaki nesneler için minimal filtreleme)
-        # 1. Çok hafif Gaussian blur (uzaktaki nesneleri korumak için)
-        birlestirilmis_maske = cv2.GaussianBlur(birlestirilmis_maske, (3, 3), 0)
-        birlestirilmis_maske = cv2.threshold(birlestirilmis_maske, 80, 255, cv2.THRESH_BINARY)[1]  # Daha düşük threshold
+        # HER ZAMAN ARKAPLAN KARARTMA UYGULA
+        # Önce tüm kareyi karart
+        sonuc = karartilmis_arkaplan.copy()
         
-        # 2. Minimal morphological işlemler
-        cekirdek_temizlik = np.ones((2, 2), np.uint8)
-        birlestirilmis_maske = cv2.morphologyEx(birlestirilmis_maske, cv2.MORPH_CLOSE, cekirdek_temizlik, iterations=1)
+        # Tüm renk maskelerini birleştirmek için
+        toplam_maske = np.zeros(hsv.shape[:2], dtype=np.uint8)
         
-        # 3. Çok hafif genişletme
-        cekirdek = np.ones((2, 2), np.uint8)  # Daha küçük kernel
-        birlestirilmis_maske = cv2.dilate(birlestirilmis_maske, cekirdek, iterations=1)
+        # Renk bilgilerini sakla (çizim için)
+        tespit_edilen_renkler = []
         
-        # Renkleri filtrele
-        sonuc = cv2.bitwise_and(kare, kare, mask=birlestirilmis_maske)
-        
-        # Maskelenmiş renklerin canlılığını duyarlılığa göre ayarla
-        hassasiyet = hassasiyet * 20 + 40  # 1-10 değerlerini 60-240 aralığına eşle
-        sonuc[np.where((sonuc != [0, 0, 0]).all(axis=2))] = [hassasiyet, hassasiyet, hassasiyet]
-        
-        # Orijinal kareyi koyulaştır
-        kontrast_degeri = kontrast / 10  # 1-10 değerlerini 0.1-1.0 aralığına eşle
-        koyulastirilmis_kare = cv2.addWeighted(kare, kontrast_degeri, np.zeros_like(kare), 1-kontrast_degeri, 0)
-        
-        # Sonuçları birleştir
-        birlestirilmis_sonuc = cv2.addWeighted(koyulastirilmis_kare, 0.7, sonuc, 0.3, 0)
-        
-        # BGR formatında renk değerleri
-        renkler = {
-            'red': (0, 0, 255) if secili_renkler.get('red', False) else None,
-            'green': (0, 255, 0) if secili_renkler.get('green', False) else None,
-            'blue': (255, 0, 0) if secili_renkler.get('blue', False) else None,
-            'yellow': (0, 255, 255) if secili_renkler.get('yellow', False) else None        }
-        
-        # Önce dikdörtgenleri çiz (kararlı kontur algılama ile)
-        for renk_adi, maske in maskeler.items():
-            if renkler[renk_adi] is not None:
-                konturlar, _ = cv2.findContours(maske, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                # Kararlı konturları al
-                karali_konturlar = self.kontur_kararliligi_kontrol(renk_adi, konturlar)
+        # Her renk için işlem (ten rengi hariç - sadece arkaplanda kullanılır)
+        for renk_adi, secili in secili_renkler.items():
+            if not secili or renk_adi not in self.renk_araliklari or renk_adi == 'skin':
+                continue
                 
-                for kontur in karali_konturlar:
-                    x, y, g, y_yukseklik = cv2.boundingRect(kontur)
-                    # Dikdörtgen çiz (kalınlığı biraz artır)
-                    cv2.rectangle(birlestirilmis_sonuc, (x, y), (x + g, y + y_yukseklik), renkler[renk_adi], 3)
-          # Sonra metni çiz (kararlı konturlar ile)
-        for renk_adi, maske in maskeler.items():
-            if renkler[renk_adi] is not None:
-                konturlar, _ = cv2.findContours(maske, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-                # Kararlı konturları al (aynı konturları kullan)
-                karali_konturlar = self.kontur_kararliligi_kontrol(renk_adi, konturlar)
-                
-                for kontur in karali_konturlar:
-                    x, y, g, y_yukseklik = cv2.boundingRect(kontur)
-                    maske_kontur = maske[y:y+y_yukseklik, x:x+g]
-                    kontur_alani = cv2.contourArea(kontur)
-                    maske_alani = np.sum(maske_kontur > 0)
-                    dogruluk = min((maske_alani / kontur_alani) * 100, 100)
-                    
-                    # Renk adı ve doğruluk yüzdesi metni oluştur
-                    metin = f"{renk_cevirileri.get(renk_adi, renk_adi)} ({dogruluk:.1f}%)"
-                    
-                    # UTF-8 metin çizim fonksiyonunu kullan
-                    birlestirilmis_sonuc = draw_text_with_utf8(
-                        birlestirilmis_sonuc,
-                        metin,
-                        (x, y - 25),  # Metni dikdörtgenin üzerinde konumlandır
-                        metin_rengi=renkler[renk_adi],
-                        font_boyutu=16,
-                        dis_cizgi_rengi=(0, 0, 0),  # Siyah dış çizgi
-                        dis_cizgi_kalinligi=1                    )
-                            
-        return birlestirilmis_sonuc
-    
-    def kontur_kararliligi_kontrol(self, renk_adi, konturlar):
-        """
-        Gelişmiş kontur kararlılığı kontrolü - çerçevelerin sabit kalmasını sağlar
-        
-        Args:
-            renk_adi: Renk adı ('red', 'blue', vb.)
-            konturlar: Mevcut frame'deki konturlar
+            # Renk maskesi oluştur
+            maske_birlesik = np.zeros(hsv.shape[:2], dtype=np.uint8)
             
-        Returns:
-            Kararlı ve yumuşatılmış konturlar
-        """
-        if renk_adi not in self.onceki_konturlar:
-            self.onceki_konturlar[renk_adi] = []
-        
-        # Geçerli konturları filtrele ve kaydet
-        gecerli_konturlar = []
-        for kontur in konturlar:
-            if cv2.contourArea(kontur) > self.min_kontur_alani:
-                x, y, w, h = cv2.boundingRect(kontur)
-                merkez_x, merkez_y = x + w//2, y + h//2
+            for alt_sinir, ust_sinir in self.renk_araliklari[renk_adi]:
+                maske = cv2.inRange(hsv, alt_sinir, ust_sinir)
+                maske_birlesik = cv2.bitwise_or(maske_birlesik, maske)
+            
+            # Sadece kırmızı için basit ten rengi filtresi uygula
+            if renk_adi == 'red':
+                # Sadece basit ten rengi filtreleme (kararlılık için)
+                maske_birlesik = cv2.bitwise_and(maske_birlesik, cv2.bitwise_not(ten_maske))
+            
+            # Basit morfolojik temizleme (tüm renkler için aynı)
+            kernel_kucuk = np.ones((3, 3), np.uint8)
+            kernel_orta = np.ones((5, 5), np.uint8)
+            
+            maske_birlesik = cv2.morphologyEx(maske_birlesik, cv2.MORPH_OPEN, kernel_kucuk)
+            maske_birlesik = cv2.morphologyEx(maske_birlesik, cv2.MORPH_CLOSE, kernel_orta)
+            maske_birlesik = cv2.medianBlur(maske_birlesik, 5)
+            
+            # Konturları bul
+            konturlar, _ = cv2.findContours(maske_birlesik, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Hassasiyete göre minimum alan ayarla (daha hassas)
+            min_alan = self.min_alanlar[renk_adi] * (12 - hassasiyet) / 10
+            
+            # Renk değeri
+            if renk_adi == 'skin':
+                renk = (139, 105, 20)  # Kahverengi ton (ten rengi için)
+            elif renk_adi == 'red':
+                renk = (0, 0, 255)
+            elif renk_adi == 'green':
+                renk = (0, 255, 0)
+            elif renk_adi == 'blue':
+                renk = (255, 0, 0)
+            elif renk_adi == 'yellow':
+                renk = (0, 255, 255)
+            
+            # Bu renk için geçerli konturları topla
+            for kontur in konturlar:
                 alan = cv2.contourArea(kontur)
-                gecerli_konturlar.append({
+                if alan < min_alan:
+                    continue
+                
+                # Bounding box
+                x, y, w, h = cv2.boundingRect(kontur)
+                
+                # Gelişmiş şekil filtresi
+                aspect_ratio = max(w, h) / max(min(w, h), 1)
+                if aspect_ratio > 6:  # Biraz daha toleranslı
+                    continue
+                
+                # Kontur kalitesi kontrolü
+                peri = cv2.arcLength(kontur, True)
+                if peri > 0:
+                    compactness = 4 * np.pi * alan / (peri * peri)
+                    if compactness < 0.1:  # Çok düzensiz şekilleri atla
+                        continue
+                
+                # Doğruluk hesapla
+                roi_maske = maske_birlesik[y:y+h, x:x+w]
+                maske_alani = np.sum(roi_maske > 0)
+                dogruluk = min(100, (maske_alani / max(alan, 1)) * 100)
+                
+                # Basit doğruluk kontrolü (tüm renkler için aynı)
+                if dogruluk < 30:
+                    continue
+                
+                # Bu konturun maskesini toplam maskeye ekle
+                cv2.fillPoly(toplam_maske, [kontur], 255)
+                
+                # Renk bilgisini sakla
+                metin = f"{renk_cevirileri.get(renk_adi, renk_adi)} ({dogruluk:.0f}%)"
+                tespit_edilen_renkler.append({
                     'kontur': kontur,
                     'bbox': (x, y, w, h),
-                    'merkez': (merkez_x, merkez_y),
-                    'alan': alan,
-                    'stabilite_sayaci': 1
+                    'renk': renk,
+                    'renk_adi': renk_adi,  # Renk adını da sakla
+                    'metin': metin
                 })
         
-        # Önceki konturlarla karşılaştır ve kararlı olanları bul
-        karali_konturlar = []
-        
-        if len(self.onceki_konturlar[renk_adi]) > 0:
-            onceki_konturlar = self.onceki_konturlar[renk_adi][-1]
+        # VURGULAMA SİSTEMİ UYGULA
+        if np.sum(toplam_maske) > 0:
+            # Maske kenarlarını yumuşat
+            toplam_maske_smooth = cv2.GaussianBlur(toplam_maske, (15, 15), 0)
+            toplam_maske_smooth = toplam_maske_smooth.astype(np.float32) / 255.0
             
-            for gecerli in gecerli_konturlar:
-                en_yakin_onceki = None
-                en_kucuk_mesafe = float('inf')
+            # 3 kanala genişlet
+            maske_3d = np.stack([toplam_maske_smooth] * 3, axis=2)
+            
+            # Orijinal renkleri algılanan alanlarda geri getir
+            sonuc = sonuc.astype(np.float32)
+            kare_float = kare.astype(np.float32)
+            
+            # Yumuşak geçiş ile orijinal renkleri vurgula
+            sonuc = sonuc * (1 - maske_3d) + kare_float * maske_3d
+            sonuc = sonuc.astype(np.uint8)
+            
+            # RENK KÖRLÜĞÜ DOSTU VURGU EFEKTI
+            # Her renk için optimal çerçeve rengi kullan
+            for renk_info in tespit_edilen_renkler:
+                kontur = renk_info['kontur']
+                renk_adi = renk_info['renk_adi']  # Renk adını da saklayacağız
                 
-                # En yakın önceki konturu bul
-                for onceki in onceki_konturlar:
-                    mesafe = np.sqrt((gecerli['merkez'][0] - onceki['merkez'][0])**2 + 
-                                   (gecerli['merkez'][1] - onceki['merkez'][1])**2)
-                    
-                    if mesafe < en_kucuk_mesafe and mesafe < 30:  # 30 piksel tolerance
-                        en_kucuk_mesafe = mesafe
-                        en_yakin_onceki = onceki
-                
-                if en_yakin_onceki is not None:
-                    # Kontur kararlı - önceki konumla ortalama al (yumuşak geçiş)
-                    eski_bbox = en_yakin_onceki['bbox']
-                    yeni_bbox = gecerli['bbox']
-                    
-                    # %70 eski pozisyon, %30 yeni pozisyon (daha az hareket)
-                    yumusak_x = int(eski_bbox[0] * 0.7 + yeni_bbox[0] * 0.3)
-                    yumusak_y = int(eski_bbox[1] * 0.7 + yeni_bbox[1] * 0.3)
-                    yumusak_w = int(eski_bbox[2] * 0.7 + yeni_bbox[2] * 0.3)
-                    yumusak_h = int(eski_bbox[3] * 0.7 + yeni_bbox[3] * 0.3)
-                    
-                    # Yumuşatılmış bbox'tan yeni kontur oluştur
-                    yumusak_kontur = np.array([
-                        [[yumusak_x, yumusak_y]],
-                        [[yumusak_x + yumusak_w, yumusak_y]],
-                        [[yumusak_x + yumusak_w, yumusak_y + yumusak_h]],
-                        [[yumusak_x, yumusak_y + yumusak_h]]
-                    ])
-                    
-                    gecerli['kontur'] = yumusak_kontur
-                    gecerli['bbox'] = (yumusak_x, yumusak_y, yumusak_w, yumusak_h)
-                    gecerli['merkez'] = (yumusak_x + yumusak_w//2, yumusak_y + yumusak_h//2)
-                    gecerli['stabilite_sayaci'] = en_yakin_onceki['stabilite_sayaci'] + 1
-                    
-                    # Sadece en az 2 frame stabil olan konturları kabul et
-                    if gecerli['stabilite_sayaci'] >= 2:
-                        karali_konturlar.append(gecerli['kontur'])
+                # Renk körlüğü türüne göre optimal çerçeve rengi seç
+                if renk_korlugu_turu in self.renk_korlugu_eşlemeleri:
+                    cerceve_rengi = self.renk_korlugu_eşlemeleri[renk_korlugu_turu].get(renk_adi, (255, 255, 255))
                 else:
-                    # Yeni kontur - ilk görülüyor, 1 frame bekle
-                    pass
+                    cerceve_rengi = (255, 255, 255)  # Varsayılan beyaz
+                
+                # Bu kontur için maske oluştur
+                kontur_maske = np.zeros(hsv.shape[:2], dtype=np.uint8)
+                cv2.fillPoly(kontur_maske, [kontur], 255)
+                
+                # Kontur kenarını genişlet
+                vurgu_maske = cv2.dilate(kontur_maske, np.ones((5, 5), np.uint8), iterations=1)
+                vurgu_kenar = cv2.bitwise_xor(vurgu_maske, kontur_maske)
+                
+                # Bu rengin kenarını optimal çerçeve rengiyle çiz
+                sonuc[vurgu_kenar > 0] = cerceve_rengi
         
-        # Mevcut konturları kaydet
-        self.onceki_konturlar[renk_adi] = [gecerli_konturlar]
+        # RENK KÖRLÜĞÜ DOSTU METİN ÇİZİMİ
+        for renk_info in tespit_edilen_renkler:
+            x, y, w, h = renk_info['bbox']
+            metin = renk_info['metin']
+            renk_adi = renk_info['renk_adi']
+            
+            # Renk körlüğü türüne göre optimal metin rengi seç
+            if renk_korlugu_turu in self.renk_korlugu_eşlemeleri:
+                metin_rengi = self.renk_korlugu_eşlemeleri[renk_korlugu_turu].get(renk_adi, (255, 255, 255))
+            else:
+                metin_rengi = (255, 255, 255)  # Varsayılan beyaz
+            
+            # Merkezi konumu hesapla 
+            merkez_x = x + w // 2
+            merkez_y = y + h // 2
+            
+            # Metin boyutunu al
+            text_size = cv2.getTextSize(metin, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+            
+            # Metni nesnenin üst ortasına yerleştir
+            metin_x = merkez_x - text_size[0] // 2
+            metin_y = max(y - 10, 20)  # En az 20 piksel yukarıda
+            
+            # BGR'yi RGB'ye çevir (draw_text_with_utf8 RGB bekler)
+            metin_rengi_rgb = (metin_rengi[2], metin_rengi[1], metin_rengi[0])
+            
+            # Renk körlüğü dostu metin çiz
+            sonuc = draw_text_with_utf8(
+                sonuc, metin, (metin_x, metin_y),
+                metin_rengi=metin_rengi_rgb, font_boyutu=14,
+                dis_cizgi_rengi=(0, 0, 0), dis_cizgi_kalinligi=2
+            )
         
-        # Son 5 frame'i sakla (daha uzun hafıza)
-        if len(self.onceki_konturlar[renk_adi]) > 5:
-            self.onceki_konturlar[renk_adi].pop(0)
-        
-        return karali_konturlar
+        return sonuc

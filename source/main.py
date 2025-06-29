@@ -12,9 +12,9 @@ from .gallery import ScreenshotGallery
 from .color_detection import ColorDetector
 from .camera import CameraManager, kamera_arayuzu_olustur, kamera_izin_arayuzunu_goster
 from .utils import draw_text_with_utf8
-from .ui_components import (kamera_kontrolleri_olustur, renk_algilama_grubu_olustur,
-                          gorunum_ayarlari_grubu_olustur, kamera_ayarlari_grubu_olustur,
-                          dil_grubu_olustur, hakkinda_grubu_olustur, koyu_tema_uygula)
+from .ui_components import (kamera_kontrolleri_olustur, renk_korlugu_turu_grubu_olustur,
+                          kamera_ayarlari_grubu_olustur,
+                          dil_grubu_olustur, hakkinda_grubu_olustur, koyu_tema_uygula, GelismisAyarlarDialog)
 
 class ColorVisionAid(QMainWindow):
     def __init__(self):
@@ -89,22 +89,57 @@ class ColorVisionAid(QMainWindow):
     def ayarlar_panelini_kur(self):
         """Ayarlar panelini oluştur"""
         self.ayarlar_paneli = QWidget()
-        self.ayarlar_paneli.setMaximumWidth(300)
+        # Responsive genişlik - Ekran boyutuna göre ayarla
+        from PyQt5.QtWidgets import QApplication
+        ekran = QApplication.desktop().screenGeometry()
+        min_genislik = min(280, max(250, int(ekran.width() * 0.25)))
+        max_genislik = min(350, int(ekran.width() * 0.35))
+        
+        self.ayarlar_paneli.setMinimumWidth(min_genislik)
+        self.ayarlar_paneli.setMaximumWidth(max_genislik)
+        
         self.ayarlar_duzen = QVBoxLayout(self.ayarlar_paneli)
+        self.ayarlar_duzen.setSpacing(8)
+        self.ayarlar_duzen.setContentsMargins(5, 5, 5, 5)
           # UI Components modülünden grupları oluştur
-        self.renk_grubu = renk_algilama_grubu_olustur(self)
-        self.gorunum_grubu = gorunum_ayarlari_grubu_olustur(self)
+        self.renk_korlugu_grubu = renk_korlugu_turu_grubu_olustur(self)
         self.kamera_ayarlari_grubu = kamera_ayarlari_grubu_olustur(self)
         self.dil_grubu = dil_grubu_olustur(self)
         self.hakkinda_grubu = hakkinda_grubu_olustur(self)
         
         # Ayar gruplarını panele ekle
-        self.ayarlar_duzen.addWidget(self.renk_grubu)
-        self.ayarlar_duzen.addWidget(self.gorunum_grubu)
+        self.ayarlar_duzen.addWidget(self.renk_korlugu_grubu)
         self.ayarlar_duzen.addWidget(self.kamera_ayarlari_grubu)
         self.ayarlar_duzen.addWidget(self.dil_grubu)
         self.ayarlar_duzen.addWidget(self.hakkinda_grubu)
         self.ayarlar_duzen.addStretch()
+        
+        # Varsayılan renk seçimi checkbox'ları (gelişmiş ayarlar için)
+        # Bu checkbox'lar sadece gelişmiş ayarlarda görünür olacak
+        from PyQt5.QtWidgets import QCheckBox
+        self.kirmizi_onay_kutu = QCheckBox(tr.get_text("detect_red"))
+        self.yesil_onay_kutu = QCheckBox(tr.get_text("detect_green"))
+        self.mavi_onay_kutu = QCheckBox(tr.get_text("detect_blue"))
+        self.sari_onay_kutu = QCheckBox(tr.get_text("detect_yellow"))
+        
+        # Varsayılan seçili renkler (Kırmızı-Yeşil renk körlüğü)
+        self.kirmizi_onay_kutu.setChecked(True)
+        self.yesil_onay_kutu.setChecked(True)
+        
+        # Filtreleme ayarları
+        self.ten_rengi_filtreleme_aktif = True  # Ten rengi filtreleme varsayılan aktif
+        self.kararlilik_gelistirme_aktif = True  # Kararlılık geliştirme varsayılan aktif
+        
+        # Hassasiyet ve kontrast değerleri için varsayılan değerler (gelişmiş ayarlarda kullanılacak)
+        self.hassasiyet_degeri = 5
+        self.kontrast_degeri = 5
+        
+        # Gelişmiş ayarlar için gizli slider (sadece değer tutmak için)
+        from PyQt5.QtWidgets import QSlider
+        self.hassasiyet_kaydirici = QSlider(Qt.Horizontal)
+        self.hassasiyet_kaydirici.setRange(1, 10)
+        self.hassasiyet_kaydirici.setValue(5)
+        self.hassasiyet_kaydirici.setVisible(False)  # Görünmez
 
     def dil_degistir(self, indeks):
         """Uygulama dilini değiştir"""
@@ -136,23 +171,32 @@ class ColorVisionAid(QMainWindow):
             self.kamera_acma_kapama_buton.setText(tr.get_text("start"))
             self.kamera_acma_kapama_buton.setToolTip(tr.get_text("start_tooltip"))
 
-        # Grupları güncelle
-        self.renk_grubu.setTitle(tr.get_text("color_detection"))
-        self.gorunum_grubu.setTitle(tr.get_text("display_settings"))
+        # Grupları güncelle (yeni UI yapısı)
+        self.renk_korlugu_grubu.setTitle(tr.get_text("color_blindness_type"))
         self.kamera_ayarlari_grubu.setTitle(tr.get_text("camera_settings"))
         self.dil_grubu.setTitle(tr.get_text("language"))
         self.hakkinda_grubu.setTitle(tr.get_text("about"))
         
-        # Onay kutularını güncelle
+        # Renk körlüğü combo box'ını güncelle
+        self.renk_korlugu_combo.clear()
+        self.renk_korlugu_combo.addItem(tr.get_text("red_green_colorblind"), "red_green")
+        self.renk_korlugu_combo.addItem(tr.get_text("blue_yellow_colorblind"), "blue_yellow")
+        self.renk_korlugu_combo.addItem(tr.get_text("protanopia"), "protanopia")
+        self.renk_korlugu_combo.addItem(tr.get_text("deuteranopia"), "deuteranopia")
+        self.renk_korlugu_combo.addItem(tr.get_text("tritanopia"), "tritanopia")
+        self.renk_korlugu_combo.addItem(tr.get_text("complete_colorblind"), "complete")
+        self.renk_korlugu_combo.addItem(tr.get_text("custom_colors"), "custom")
+        
+        # Gelişmiş ayarlar butonunu güncelle
+        self.gelismis_ayarlar_buton.setText(tr.get_text("advanced_settings"))
+        
+        # Onay kutularını güncelle (sadece dahili kullanım için)
         self.kirmizi_onay_kutu.setText(tr.get_text("detect_red"))
         self.yesil_onay_kutu.setText(tr.get_text("detect_green"))
         self.mavi_onay_kutu.setText(tr.get_text("detect_blue"))
         self.sari_onay_kutu.setText(tr.get_text("detect_yellow"))
         
         # Etiketleri güncelle
-        self.algilama_hassasiyet_etiket.setText(tr.get_text("detection_sensitivity"))
-        self.kontrast_etiket.setText(tr.get_text("contrast"))
-        self.gorunum_modu_etiket.setText(tr.get_text("display_mode"))
         self.kamera_bilgi_etiket.setText(tr.get_text("camera_settings_info"))
         self.hakkinda_etiket.setText(tr.get_text("about_text"))
         self.izin_sifirlama_buton.setText(tr.get_text("reset_camera_permission"))
@@ -300,13 +344,14 @@ class ColorVisionAid(QMainWindow):
         sonuc, kare = self.kamera_yoneticisi.kare_al()
         if sonuc:
             secili_renkler = {
+                'skin': True,  # Ten rengi arkaplanda çalışır (görünmez)
                 'red': self.kirmizi_onay_kutu.isChecked(),
                 'green': self.yesil_onay_kutu.isChecked(),
                 'blue': self.mavi_onay_kutu.isChecked(),
                 'yellow': self.sari_onay_kutu.isChecked()
             }
             
-            # Çevrilmiş renk isimleri
+            # Çevrilmiş renk isimleri (ten rengi dahil değil - görünmez)
             cevrilmis_renk_isimleri = {
                 'red': tr.get_text("red"),
                 'green': tr.get_text("green"),
@@ -314,13 +359,19 @@ class ColorVisionAid(QMainWindow):
                 'yellow': tr.get_text("yellow")
             }
             
+            # Renk körlüğü türünü al
+            renk_korlugu_turu = self.renk_korlugu_combo.currentData() or 'red_green'
+            
             # Renk detektörü ile kareyi işle
             birlestirilmis_sonuc = self.renk_algilayici.kareyi_isle(
                 kare, 
                 secili_renkler,
                 self.hassasiyet_kaydirici.value(),
-                self.kontrast_kaydirici.value(),
-                cevrilmis_renk_isimleri
+                self.kontrast_degeri,  # Sabit kontrast değeri kullan
+                cevrilmis_renk_isimleri,
+                self.ten_rengi_filtreleme_aktif,
+                self.kararlilik_gelistirme_aktif,
+                renk_korlugu_turu  # Renk körlüğü türünü gönder
             )
             
             # Sonucu QImage'a çevir ve göster
@@ -366,3 +417,52 @@ class ColorVisionAid(QMainWindow):
                     self.kamera_izni_verildiginde,
                     self.kamera_izni_reddedildiginde
                 )
+
+    def renk_korlugu_turu_degisti(self, indeks):
+        """Renk körlüğü türü değiştiğinde otomatik renk seçimi"""
+        tür_kodu = self.renk_korlugu_combo.itemData(indeks)
+        
+        # Tüm renkleri önce kapat
+        self.kirmizi_onay_kutu.setChecked(False)
+        self.yesil_onay_kutu.setChecked(False)
+        self.mavi_onay_kutu.setChecked(False)
+        self.sari_onay_kutu.setChecked(False)
+        
+        # Seçilen türe göre uygun renkleri aç
+        if tür_kodu == "red_green":
+            # Kırmızı-Yeşil renk körlüğü
+            self.kirmizi_onay_kutu.setChecked(True)
+            self.yesil_onay_kutu.setChecked(True)
+        elif tür_kodu == "blue_yellow":
+            # Mavi-Sarı renk körlüğü
+            self.mavi_onay_kutu.setChecked(True)
+            self.sari_onay_kutu.setChecked(True)
+        elif tür_kodu == "protanopia":
+            # Protanopi (Kırmızı körlüğü) - Kırmızı ve yeşil ayrımı zor
+            self.kirmizi_onay_kutu.setChecked(True)
+            self.yesil_onay_kutu.setChecked(True)
+            self.mavi_onay_kutu.setChecked(True)  # Mavi net görülür
+        elif tür_kodu == "deuteranopia":
+            # Deuteranopi (Yeşil körlüğü) - Kırmızı ve yeşil ayrımı zor
+            self.kirmizi_onay_kutu.setChecked(True)
+            self.yesil_onay_kutu.setChecked(True)
+            self.mavi_onay_kutu.setChecked(True)  # Mavi net görülür
+        elif tür_kodu == "tritanopia":
+            # Tritanopi (Mavi körlüğü) - Mavi ve sarı ayrımı zor
+            self.mavi_onay_kutu.setChecked(True)
+            self.sari_onay_kutu.setChecked(True)
+            self.kirmizi_onay_kutu.setChecked(True)  # Kırmızı net görülür
+        elif tür_kodu == "complete":
+            # Tam renk körlüğü - Tüm renkler
+            self.kirmizi_onay_kutu.setChecked(True)
+            self.yesil_onay_kutu.setChecked(True)
+            self.mavi_onay_kutu.setChecked(True)
+            self.sari_onay_kutu.setChecked(True)
+        elif tür_kodu == "custom":
+            # Özel renk seçimi - Gelişmiş ayarları aç
+            self.gelismis_ayarlar_ac()
+
+    def gelismis_ayarlar_ac(self):
+        """Gelişmiş ayarlar dialog'unu aç"""
+        dialog = GelismisAyarlarDialog(self)
+        dialog.exec_()

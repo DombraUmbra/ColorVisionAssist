@@ -90,10 +90,6 @@ class Translations:
             },
             
             # Görüntü ayarları
-            "display_settings": {
-                "en": "Display Settings",
-                "tr": "Görüntüleme Ayarları"
-            },
             "detection_sensitivity": {
                 "en": "Detection Sensitivity:",
                 "tr": "Algılama Hassasiyeti:"
@@ -310,14 +306,6 @@ class Translations:
                 "en": "Adjust how sensitive the detection is",
                 "tr": "Algılamanın ne kadar hassas olacağını ayarlayın"
             },
-            "contrast_tooltip": {
-                "en": "Adjust the contrast of the display",
-                "tr": "Ekranın kontrastını ayarlayın"
-            },
-            "display_mode_tooltip": {
-                "en": "Choose a display mode that fits your needs",
-                "tr": "İhtiyaçlarınıza uygun bir görüntüleme modu seçin"
-            },
             
             # Permission button tooltips
             "grant_permission_tooltip": {
@@ -330,7 +318,179 @@ class Translations:
             },
             "remember_decision_tooltip": {
                 "en": "Save this choice for future sessions",
-                "tr": "Bu seçimi gelecek oturumlar için kaydet"            }
+                "tr": "Bu seçimi gelecek oturumlar için kaydet"
+            },
+            
+            # Renk körlüğü türleri
+            "color_blindness_type": {
+                "en": "Color Blindness Type",
+                "tr": "Renk Körlüğü Türü"
+            },
+            "color_blindness_type_tooltip": {
+                "en": "Select your type of color blindness for optimal detection",
+                "tr": "En iyi algılama için renk körlüğü türünüzü seçin"
+            },
+            "protanopia": {
+                "en": "Protanopia (Red Vision Deficiency)",
+                "tr": "Protanopi (Kırmızı Görme Zorluğu)"
+            },
+            "deuteranopia": {
+                "en": "Deuteranopia (Green Vision Deficiency)",
+                "tr": "Deuteranopi (Yeşil Görme Zorluğu)"
+            },
+            "tritanopia": {
+                "en": "Tritanopia (Blue Vision Deficiency)",
+                "tr": "Tritanopi (Mavi Görme Zorluğu)"
+            },
+            "red_green_colorblind": {
+                "en": "Red-Green Color Vision Deficiency",
+                "tr": "Kırmızı-Yeşil Renk Körlüğü"
+            },
+            "blue_yellow_colorblind": {
+                "en": "Blue-Yellow Color Vision Deficiency", 
+                "tr": "Mavi-Sarı Renk Körlüğü"
+            },
+            "complete_colorblind": {
+                "en": "Complete Color Vision Deficiency",
+                "tr": "Tam Renk Körlüğü"
+            },
+            "custom_colors": {
+                "en": "Custom Colors",
+                "tr": "Özel Renkler"
+            },
+            
+            # Gelişmiş ayarlar
+            "advanced_settings": {
+                "en": "Advanced Settings",
+                "tr": "Gelişmiş Ayarlar"
+            },
+            "advanced_settings_tooltip": {
+                "en": "Open advanced color detection and sensitivity settings",
+                "tr": "Gelişmiş renk algılama ve hassasiyet ayarlarını aç"
+            },
+            "manual_color_selection": {
+                "en": "Manual Color Selection",
+                "tr": "Manuel Renk Seçimi"
+            },
+            "detection_parameters": {
+                "en": "Detection Parameters",
+                "tr": "Algılama Parametreleri"
+            },
+            
+            # Kısa sekme başlıkları (taşma önleme için)
+            "color_selection_short": {
+                "en": "Colors",
+                "tr": "Renkler"
+            },
+            "parameters_short": {
+                "en": "Settings", 
+                "tr": "Ayarlar"
+            },
+            "filtering_short": {
+                "en": "Filters",
+                "tr": "Filtreler"
+            },
+            
+            "real_world_sensitivity": {
+                "en": "Detection Sensitivity",
+                "tr": "Algılama Hassasiyeti"
+            },
+            "real_world_sensitivity_tooltip": {
+                "en": "Higher values detect distant objects better, lower values provide more stability",
+                "tr": "Yüksek değerler uzak nesneleri daha iyi algılar, düşük değerler daha kararlılık sağlar"
+            },
+            "color_filtering": {
+                "en": "Color Filtering",
+                "tr": "Renk Filtreleme"
+            },
+            "skin_tone_filtering": {
+                "en": "Skin Tone Filtering",
+                "tr": "Ten Rengi Filtreleme"
+            },
+            "skin_tone_filtering_tooltip": {
+                "en": "Prevents skin tones from being detected as red colors",
+                "tr": "Ten renklerinin kırmızı renk olarak algılanmasını engeller"
+            },
+            "stability_enhancement": {
+                "en": "Stability Enhancement",
+                "tr": "Kararlılık Geliştirme"
+            },
+            "stability_enhancement_tooltip": {
+                "en": "Reduces flickering and improves detection consistency",
+                "tr": "Titreşimi azaltır ve algılama tutarlılığını artırır"
+            },
+            
+            # Dialog butonları
+            "apply": {
+                "en": "Apply",
+                "tr": "Uygula"
+            },
+            "ok": {
+                "en": "OK",
+                "tr": "Tamam"
+            },
+            "save": {
+                "en": "Save",
+                "tr": "Kaydet"
+            },
+            "cancel": {
+                "en": "Cancel",
+                "tr": "İptal"
+            },
+            
+            # Gelişmiş ayarlar açıklamaları
+            "manual_color_selection_desc": {
+                "en": "Manually select which colors you want to detect. This gives you full control over color detection.",
+                "tr": "Algılamak istediğiniz renkleri manuel olarak seçin. Bu size renk algılama üzerinde tam kontrol verir."
+            },
+            "detection_parameters_desc": {
+                "en": "Adjust detection sensitivity for optimal performance. Higher values detect distant objects better.",
+                "tr": "Optimal performans için algılama hassasiyetini ayarlayın. Yüksek değerler uzak nesneleri daha iyi algılar."
+            },
+            "color_filtering_desc": {
+                "en": "Configure advanced filtering options to reduce false detections and improve accuracy.",
+                "tr": "Yanlış algılamaları azaltmak ve doğruluğu artırmak için gelişmiş filtreleme seçeneklerini yapılandırın."
+            },
+            "select_colors_to_detect": {
+                "en": "Select Colors to Detect",
+                "tr": "Algılanacak Renkleri Seçin"
+            },
+            "enable_skin_tone_filtering": {
+                "en": "Enable skin tone filtering",
+                "tr": "Ten rengi filtrelemeyi etkinleştir"
+            },
+            "enable_stability_enhancement": {
+                "en": "Enable stability enhancement",
+                "tr": "Kararlılık geliştirmeyi etkinleştir"
+            },
+            "skin_tone_filtering_explanation": {
+                "en": "Prevents skin tones from being detected as red colors. Highly recommended for accurate red detection.",
+                "tr": "Ten renklerinin kırmızı renk olarak algılanmasını engeller. Doğru kırmızı algılama için şiddetle tavsiye edilir."
+            },
+            "stability_enhancement_explanation": {
+                "en": "Reduces flickering and improves detection consistency, especially for distant objects.",
+                "tr": "Titreşimi azaltır ve özellikle uzak nesneler için algılama tutarlılığını artırır."
+            },
+            "low": {
+                "en": "Low",
+                "tr": "Düşük"
+            },
+            "high": {
+                "en": "High",
+                "tr": "Yüksek"
+            },
+            "low_sensitivity_desc": {
+                "en": "Very stable detection, only close and clear objects. Best for reducing false detections.",
+                "tr": "Çok kararlı algılama, sadece yakın ve net nesneler. Yanlış algılamaları azaltmak için en iyisi."
+            },
+            "medium_sensitivity_desc": {
+                "en": "Balanced detection for everyday use. Good compromise between stability and range.",
+                "tr": "Günlük kullanım için dengeli algılama. Kararlılık ve menzil arasında iyi bir denge."
+            },
+            "high_sensitivity_desc": {
+                "en": "Detects distant and small objects. May have more false detections but catches everything.",
+                "tr": "Uzak ve küçük nesneleri algılar. Daha fazla yanlış algılama olabilir ama her şeyi yakalar."
+            }
         }
     
     def dil_ayarla(self, dil_kodu):
