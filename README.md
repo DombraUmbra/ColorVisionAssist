@@ -1,36 +1,101 @@
-# ColorVisionAssist (CVA)
+# ColorVisionAid (CVA)
 
-ColorVisionAssist is a software application designed to assist individuals with color blindness in distinguishing between colors they commonly confuse. The software utilizes real-time image processing through a camera to highlight specific colors and provide visual guidance to the user.
+ColorVisionAid is a software application designed to assist individuals with color blindness in distinguishing between colors they commonly confuse. The software utilizes real-time image processing through a camera to highlight specific colors and provide visual guidance to the user.
+
+## 🚀 Quick Start
+
+### **Desktop Version (Recommended):**
+```bash
+python CVA.py
+```
+
+This is the main, stable version with full features using PyQt5 interface.
 
 ## Features
 
-- **Real-Time Image Processing:** Uses OpenCV to process images in real-time.
-- **Color Highlighting:** Highlights specific colors such as red, green, blue, and yellow to make them more distinguishable.
-- **Customizable Settings:** Allows users to personalize the application based on their type of color blindness.
-- **Screenshot Gallery:** View and manage saved screenshots within the application.
-- **Multi-Language Support:** Supports multiple languages for a better user experience. (Currently only available in English and Turkish.)
+- **Real-Time Color Detection:** Advanced algorithm highlights red, green, blue, and yellow colors
+- **Color Blindness Support:** Specialized modes for different types of color vision deficiency  
+- **Customizable Settings:** Adjust sensitivity, contrast, and detection parameters
+- **Screenshot Gallery:** Save and manage screenshots within the application
+- **Multi-Language Support:** English and Turkish language support
 
-## Future Features
+## Installation & Setup
 
-- **User-Friendly Mobile Interface:** A mobile application interface that is easy to use.
-- **Enhancements:** Plans to integrate machine learning for personalized color detection, and add advanced features like object recognition and adaptive color enhancement.
+### **Windows (Recommended):**
+```bash
+# Run the setup script
+setup_mobile.bat
+
+# Or manual installation:
+pip install -r requirements.txt          # For desktop
+pip install -r requirements_mobile.txt   # For mobile
+```
+
+### **Linux/macOS:**
+```bash
+chmod +x setup_mobile.sh
+./setup_mobile.sh
+```
 
 ## Usage
 
-1. Open the application.
-2. Allow access to your device's camera.
-3. The application will start processing the real-time video feed.
-4. Specific colors will be highlighted to assist with color differentiation.
-5. Use the settings panel to customize color detection and display settings.
-6. Access the screenshot gallery to view and manage saved screenshots.
+### Desktop Version (`CVA.py`):
+1. Run `python CVA.py`
+2. Professional GUI with full controls
+3. Camera feed with real-time color detection
+4. Settings panel for customization
+5. Gallery for screenshot management
 
-## Acknowledgements
+### Mobile Version (`mobile_opencv.py`):
+## Installation
 
-- OpenCV for providing the tools for image processing.
-- The color-blind community for their feedback and support.
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
+- OpenCV-compatible camera
+
+### Setup
+1. Clone or download this repository
+2. Install required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the application:
+   ```bash
+   python CVA.py
+   ```
+
+## Usage
+
+### Basic Controls
+- **Color Selection:** Click on color buttons to enable/disable specific color detection
+- **Sensitivity:** Adjust detection sensitivity with the slider
+- **Color Blindness Type:** Select your specific type from the dropdown menu
+- **Screenshot:** Capture and save screenshots using the camera icon
+- **Settings:** Access advanced configuration options
+
+### Supported Color Blindness Types
+- **Protanopia:** Red-blind (missing L-cones)
+- **Deuteranopia:** Green-blind (missing M-cones)  
+- **Tritanopia:** Blue-blind (missing S-cones)
+- **Red-Green:** General red-green confusion
+- **Blue-Yellow:** Blue-yellow confusion
+
+## Technical Details
+
+- **Core Algorithm:** Advanced HSV color space analysis with adaptive thresholding
+- **Supported Platforms:** Windows, Linux, macOS
+- **Camera Support:** USB webcams, built-in cameras, external devices
+- **Performance:** Optimized for real-time processing (15-30 FPS)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
 
 ## Contact
 
 For any questions or suggestions, please contact me at bayirammar@gmail.com
-
----

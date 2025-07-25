@@ -2,17 +2,17 @@
 import os
 import sys
 
-# Source klasörünü import path'ine ekle
+# Add source folder to import path
 source_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'source')
 if source_path not in sys.path:
     sys.path.append(source_path)
 
-# Direkt source paketinden ColorVisionAid sınıfını import et
+# Import ColorVisionAid class directly from source package
 from source import ColorVisionAid
 from PyQt5.QtWidgets import QApplication
 
 def main():
-    """Ana uygulamayı başlatan fonksiyon"""
+    """Main function to start the application"""
     app = QApplication(sys.argv)
     window = ColorVisionAid()
     window.show()

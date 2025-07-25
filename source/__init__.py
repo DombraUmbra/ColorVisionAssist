@@ -1,21 +1,22 @@
 """
-Proje V - Renk körlüğü yardımcı uygulaması
-Bu paket, Proje V uygulamasının modüllerini barındırır.
+Project V - Color vision aid application
+This package contains modules for the Project V application.
 
-Modüller:
-- main: Ana uygulama ve UI mantığı
-- camera: Kamera yönetimi ve ilgili UI özellikleri
-- color_detection: Renk algılama algoritmaları
-- gallery: Ekran görüntüleri galerisi
-- translations: Çoklu dil desteği
-- utils: Yardımcı fonksiyonlar
-- ui_components: UI bileşenleri oluşturma fonksiyonları
+Modules:
+- main: Main application and UI logic
+- camera: Camera management and related UI features
+- color_detection: Color detection algorithms
+- gallery: Screenshots gallery
+- translations: Multi-language support
+- utils: Utility functions
+- ui_components: UI component creation functions
 """
 
-# Ana sınıfı doğrudan paketten erişilebilir yapma
-from .main import ColorVisionAid
+# Make main class directly accessible from package
+from .main_window import ColorVisionAid
 
-# Sık kullanılan bileşenleri paketten direkt olarak import edilebilir hale getir
-from .camera import CameraManager
+# Make frequently used components directly importable from package
+from .main_window import CameraManager
 from .color_detection import ColorDetector
+from .ui_components import ScreenshotGallery
 from .translations import translator

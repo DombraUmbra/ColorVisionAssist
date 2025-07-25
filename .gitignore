@@ -1,5 +1,6 @@
 # Python virtual environments
 .venv/
+.venv_mobile/
 venv/
 env/
 ENV/
@@ -51,6 +52,15 @@ Thumbs.db
 # Project specific
 screenshots/
 icons/README.txt
+
+# Mobile development
+bin/
+.buildozer/
+.gradle/
+build/
+*.apk
+*.ipa
+*.aab
 
 # Temporary files
 *.tmp
