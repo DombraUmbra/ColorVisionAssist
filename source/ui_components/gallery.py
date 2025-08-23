@@ -101,8 +101,9 @@ class ScreenshotGallery(QDialog):
         self.thumbnail_labels = []
         self.screenshots = []
         
-        # Ensure screenshots directory exists - use parent of source folder instead of main folder
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Ensure screenshots directory exists - use repository root (parent of 'source' folder)
+        # __file__ is .../source/ui_components/gallery.py -> go up 3 levels to reach repo root
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         screenshots_dir = os.path.join(root_dir, "screenshots")
         if not os.path.exists(screenshots_dir):
             os.makedirs(screenshots_dir)

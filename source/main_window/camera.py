@@ -71,9 +71,10 @@ class CameraManager:
         """
         if not hasattr(self, 'current_frame') or self.current_frame is None:
             return False, "No frame available"
-                
-        # Ensure screenshots directory exists - use parent of source folder instead of main folder
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Ensure screenshots directory exists - use repository root (parent of 'source' folder)
+        # __file__ is .../source/main_window/camera.py -> go up 3 levels to reach repo root
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         screenshot_dir = os.path.join(root_dir, "screenshots")
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir)

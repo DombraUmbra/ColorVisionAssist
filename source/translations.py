@@ -17,8 +17,8 @@ class Translations:
         self._translations = {
             # Application title and status messages
             "app_title": {
-                "en": "Project V",
-                "tr": "Proje V"
+                "en": "Whisper of Colors",
+                "tr": "Renklerin Fısıltısı"
             },
             "camera_initializing": {
                 "en": "Camera initializing...",
@@ -55,8 +55,8 @@ class Translations:
                 "tr": "Ekran Görüntüsü Al"
             },
             "gallery": {
-                "en": "Gallery",
-                "tr": "Galeri"
+                "en": "App Gallery",
+                "tr": "Uygulama Galerisi"
             },
             "refresh": {
                 "en": "Refresh",
@@ -108,9 +108,29 @@ class Translations:
             },
             
             # Language settings
+            "interface": {
+                "en": "Interface",
+                "tr": "Arayüz"
+            },
             "language": {
                 "en": "Language",
                 "tr": "Dil"
+            },
+            "theme": {
+                "en": "Theme",
+                "tr": "Tema"
+            },
+            "dark": {
+                "en": "Dark",
+                "tr": "Koyu"
+            },
+            "light": {
+                "en": "Light",
+                "tr": "Aydınlık"
+            },
+            "theme_tooltip": {
+                "en": "Choose application appearance",
+                "tr": "Uygulama görünümünü seçin"
             },
             
             # About
@@ -119,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Project V\nVersion 1.0.3\n\nDesigned to assist individuals\nwith color vision deficiency.",
-                "tr": "Proje V\nSürüm 1.0.3\n\nSınırları kaldır, rengini belli et."
+                "en": "Whisper of Colors\nVersion 1.1\n\nRemove the barriers, reveal your color.",
+                "tr": "Renklerin Fısıltısı\nSürüm 1.1\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery
@@ -287,8 +307,8 @@ class Translations:
                 "tr": "Kayıtlı ekran görüntülerinizi görüntüleyin"
             },
             "load_file": {
-                "en": "Load File",
-                "tr": "Dosya Yükle"
+                "en": "Upload Photo",
+                "tr": "Fotoğraf Yükle"
             },
             "load_file_tooltip": {
                 "en": "Load and analyze colors in an image file",
@@ -399,6 +419,10 @@ class Translations:
             "debug_mode": {
                 "en": "Debug Mode",
                 "tr": "Debug Modu"
+            },
+            "debug_mode_tooltip": {
+                "en": "Show skin tone filtering debug information",
+                "tr": "Ten rengi filtreleme debug bilgilerini göster"
             },
             "manual_color_selection": {
                 "en": "Manual Color Selection",

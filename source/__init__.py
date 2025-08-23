@@ -1,6 +1,6 @@
 """
-Project V - Color vision aid application
-This package contains modules for the Project V application.
+Whisper of Colors - Color vision aid application
+This package contains modules for the Whisper of Colors application.
 
 Modules:
 - main: Main application and UI logic

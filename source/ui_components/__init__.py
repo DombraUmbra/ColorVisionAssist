@@ -16,7 +16,7 @@ from .groups import (
 )
 
 # Import styling functions
-from .styles import apply_dark_theme, create_camera_interface
+from .styles import apply_dark_theme, apply_light_theme, apply_theme, create_camera_interface
 
 # Import dialog classes
 from .dialogs import AdvancedSettingsDialog
@@ -39,6 +39,8 @@ __all__ = [
     
     # Style functions
     'apply_dark_theme',
+    'apply_light_theme',
+    'apply_theme',
     'create_camera_interface',
     
     # Dialog classes

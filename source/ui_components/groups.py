@@ -11,6 +11,99 @@ from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
 from .buttons import create_button
 
+def _apply_combo_theme(combo_box, parent):
+    """Apply theme-aware styling to combo box"""
+    theme = getattr(parent, 'theme', 'dark') if parent else 'dark'
+    
+    if theme == 'light':
+        combo_box.setStyleSheet("""
+            QComboBox {
+                background-color: #FFFFFF;
+                color: #222;
+                padding: 6px 8px;
+                border-radius: 3px;
+                font-size: 9pt;
+                min-height: 22px;
+                border: 1px solid #CCC;
+            }
+            QComboBox:hover {
+                background-color: #F5F5F5;
+                border: 1px solid #2196F3;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left-width: 1px;
+                border-left-color: #CCC;
+                border-left-style: solid;
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+                background-color: #FFFFFF;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                margin: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #FFFFFF;
+                color: #222;
+                selection-background-color: #2196F3;
+                selection-color: white;
+                border: 1px solid #CCC;
+                outline: none;
+            }
+        """)
+    else:
+        combo_box.setStyleSheet("""
+            QComboBox {
+                background-color: #555;
+                color: white;
+                padding: 6px 8px;
+                border-radius: 3px;
+                font-size: 9pt;
+                min-height: 22px;
+                border: 1px solid #666;
+            }
+            QComboBox:hover {
+                background-color: #666;
+                border: 1px solid #2196F3;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border-left-width: 1px;
+                border-left-color: #666;
+                border-left-style: solid;
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+                background-color: #555;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                margin: 2px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #555;
+                color: white;
+                selection-background-color: #2196F3;
+                border: 1px solid #666;
+                outline: none;
+            }
+        """)
+
+def update_combo_themes(parent):
+    """Update all combo box themes when theme changes"""
+    if hasattr(parent, 'color_blindness_combo'):
+        _apply_combo_theme(parent.color_blindness_combo, parent)
+    if hasattr(parent, 'language_combo'):
+        _apply_combo_theme(parent.language_combo, parent)
+    if hasattr(parent, 'theme_combo'):
+        _apply_combo_theme(parent.theme_combo, parent)
+
 def create_color_blindness_type_group(parent):
     """Create color blindness type selection group"""
     color_blindness_group = QGroupBox(tr.get_text("color_blindness_type"))
@@ -27,45 +120,8 @@ def create_color_blindness_type_group(parent):
     parent.color_blindness_combo.addItem(tr.get_text("complete_colorblind"), "complete")
     parent.color_blindness_combo.addItem(tr.get_text("custom_colors"), "custom")
     
-    # Custom ComboBox style
-    parent.color_blindness_combo.setStyleSheet("""
-        QComboBox {
-            background-color: #555;
-            color: white;
-            padding: 6px 8px;
-            border-radius: 3px;
-            font-size: 9pt;
-            min-height: 22px;
-            border: 1px solid #666;
-        }
-        QComboBox:hover {
-            background-color: #666;
-            border: 1px solid #2196F3;
-        }
-        QComboBox::drop-down {
-            subcontrol-origin: padding;
-            subcontrol-position: top right;
-            width: 20px;
-            border-left-width: 1px;
-            border-left-color: #666;
-            border-left-style: solid;
-            border-top-right-radius: 3px;
-            border-bottom-right-radius: 3px;
-            background-color: #555;
-        }
-        QComboBox::down-arrow {
-            width: 8px;
-            height: 8px;
-            margin: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #555;
-            color: white;
-            selection-background-color: #2196F3;
-            border: 1px solid #666;
-            outline: none;
-        }
-    """)
+    # Apply theme-aware styling to combo box
+    _apply_combo_theme(parent.color_blindness_combo, parent)
     
     parent.color_blindness_combo.setToolTip(tr.get_text("color_blindness_type_tooltip"))
     parent.color_blindness_combo.currentIndexChanged.connect(parent.color_blindness_type_changed)
@@ -195,8 +251,13 @@ def create_camera_settings_group(parent):
 
 def create_language_group(parent):
     """Create language settings group"""
-    language_group = QGroupBox(tr.get_text("language"))
+    language_group = QGroupBox(tr.get_text("interface"))
     language_layout = QVBoxLayout()
+    
+    # Language label with blue color
+    language_label = QLabel(tr.get_text("language"))
+    language_label.setStyleSheet("color: #2196F3; font-weight: bold; font-size: 9pt;")
+    language_layout.addWidget(language_label)
     
     # Language selection
     parent.language_combo = QComboBox()
@@ -213,7 +274,33 @@ def create_language_group(parent):
     parent.language_combo.setCurrentIndex(current_index)
     parent.language_combo.currentIndexChanged.connect(parent.change_language)
     
+    # Apply theme to language combo
+    _apply_combo_theme(parent.language_combo, parent)
+    
     language_layout.addWidget(parent.language_combo)
+
+    # Theme label with blue color
+    theme_label = QLabel(tr.get_text("theme"))
+    theme_label.setStyleSheet("color: #2196F3; font-weight: bold; font-size: 9pt;")
+    parent.theme_combo = QComboBox()
+    parent.theme_combo.addItem(tr.get_text("dark"), "dark")
+    parent.theme_combo.addItem(tr.get_text("light"), "light")
+    parent.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
+    # Set current theme
+    theme_value = parent.settings.value("theme", "dark")
+    theme_index = 0
+    for i in range(parent.theme_combo.count()):
+        if parent.theme_combo.itemData(i) == theme_value:
+            theme_index = i
+            break
+    parent.theme_combo.setCurrentIndex(theme_index)
+    parent.theme_combo.currentIndexChanged.connect(parent.change_theme)
+    
+    # Apply theme to theme combo
+    _apply_combo_theme(parent.theme_combo, parent)
+    
+    language_layout.addWidget(theme_label)
+    language_layout.addWidget(parent.theme_combo)
     language_group.setLayout(language_layout)
     
     return language_group

@@ -52,6 +52,8 @@ Thumbs.db
 # Project specific
 screenshots/
 icons/README.txt
+flutter_app/
+agent_rules.txt
 
 # Mobile development
 bin/

@@ -11,6 +11,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from ..translations import translator as tr
 from ..ui_components import ScreenshotGallery
 from ..ui_components import AdvancedSettingsDialog
+from ..ui_components import apply_theme
 
 class EventHandlers:
     """Mixin class for event handling functionality"""
@@ -215,3 +216,44 @@ class EventHandlers:
             
             # Show status message
             self.status_bar.showMessage(tr.get_text("language_changed"))
+
+            # Update theme labels and tooltip according to new language
+            if hasattr(self, 'theme_combo'):
+                # Refill items preserving data
+                current_data = self.theme_combo.currentData()
+                self.theme_combo.blockSignals(True)
+                self.theme_combo.clear()
+                self.theme_combo.addItem(tr.get_text("dark"), "dark")
+                self.theme_combo.addItem(tr.get_text("light"), "light")
+                # restore selection
+                restore_index = 0
+                for i in range(self.theme_combo.count()):
+                    if self.theme_combo.itemData(i) == current_data:
+                        restore_index = i
+                        break
+                self.theme_combo.setCurrentIndex(restore_index)
+                self.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
+                self.theme_combo.blockSignals(False)
+
+    def change_theme(self, index):
+        """Change application theme"""
+        theme_value = self.theme_combo.itemData(index) if hasattr(self, 'theme_combo') else 'dark'
+        self.theme = theme_value or 'dark'
+        # Persist and apply
+        self.settings.setValue("theme", self.theme)
+        
+        # Apply window theme
+        self._apply_window_theme()
+        
+        apply_theme(self, self.theme)
+        # Update inline-styled widgets and buttons
+        if hasattr(self, 'apply_theme_to_components'):
+            self.apply_theme_to_components()
+        
+        # Force refresh all QGroupBox styling for the new theme
+        if hasattr(self, '_force_refresh_group_boxes'):
+            self._force_refresh_group_boxes()
+        
+        # Update combo box themes
+        from ..ui_components.groups import update_combo_themes
+        update_combo_themes(self)

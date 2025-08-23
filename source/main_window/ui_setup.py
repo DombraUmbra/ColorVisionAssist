@@ -5,7 +5,7 @@ Contains all UI initialization and setup functions
 
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QStatusBar, 
-                           QCheckBox, QSlider, QApplication)
+                           QCheckBox, QSlider, QApplication, QLabel)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
@@ -15,9 +15,9 @@ from ..ui_components import (
     create_camera_settings_group,
     create_language_group, 
     create_about_group, 
-    apply_dark_theme, 
     create_camera_interface
 )
+from ..ui_components.buttons import update_button_theme
 
 class UISetup:
     """Mixin class for UI setup functionality"""
@@ -49,8 +49,7 @@ class UISetup:
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(tr.get_text("ready"))
         
-        # Apply style theme
-        apply_dark_theme(self)
+    # Theme is applied in main window after UI setup
 
     def setup_camera_view(self):
         """Create camera display area"""
@@ -60,7 +59,6 @@ class UISetup:
         
         # Camera feed container
         self.camera_feed_container = QWidget()
-        self.camera_feed_container.setStyleSheet("background-color: #222; border-radius: 10px;")
         self.camera_feed_layout = QVBoxLayout(self.camera_feed_container)
         self.camera_feed_layout.setContentsMargins(20, 20, 20, 20)
         
@@ -70,6 +68,59 @@ class UISetup:
         self.camera_layout.addWidget(self.camera_feed_container)
         # Camera control buttons - Use UI Components module
         self.camera_layout.addLayout(create_camera_controls(self))
+
+    def apply_theme_to_components(self):
+        """Apply theme-specific styles to inline-styled widgets and buttons."""
+        theme = getattr(self, 'theme', 'dark').lower()
+        # Camera area background
+        if theme == 'light':
+            self.camera_feed_container.setStyleSheet("background-color: #EDEFF1; border-radius: 10px;")
+        else:
+            self.camera_feed_container.setStyleSheet("background-color: #222; border-radius: 10px;")
+
+        # Apply combo box themes using the unified approach
+        from ..ui_components.groups import update_combo_themes
+        update_combo_themes(self)
+
+        # Buttons
+        if self.camera_manager.camera_open:
+            update_button_theme(self.camera_toggle_button, 'stop', theme)
+        else:
+            update_button_theme(self.camera_toggle_button, 'start', theme)
+        update_button_theme(self.screenshot_button, 'snapshot', theme)
+        update_button_theme(self.load_file_button, 'load_file', theme)
+        update_button_theme(self.gallery_button, 'gallery', theme)
+        update_button_theme(self.advanced_settings_button, 'default', theme)
+
+        # Camera settings info label
+        if theme == 'light':
+            self.camera_info_label.setStyleSheet(
+                "QLabel { color: #444; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #F1F3F4; border-radius: 5px; border-left: 3px solid #64B5F6; max-height: 80px; }"
+            )
+        else:
+            self.camera_info_label.setStyleSheet(
+                "QLabel { color: #CCC; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #3A3A3A; border-radius: 5px; border-left: 3px solid #64B5F6; max-height: 80px; }"
+            )
+
+        # Reset camera permission button
+        if theme == 'light':
+            self.permission_reset_button.setStyleSheet(
+                "QPushButton { background-color: #E0E0E0; color: #222; padding: 8px 6px; border-radius: 5px; text-align: center; font-size: 9pt; min-height: 25px; border: 1px solid #C7C7C7; }"
+                " QPushButton:hover { background-color: #EEEEEE; border: 1px solid #1976D2; }"
+                " QPushButton:pressed { background-color: #D5D5D5; }"
+            )
+        else:
+            self.permission_reset_button.setStyleSheet(
+                "QPushButton { background-color: #555; color: white; padding: 8px 6px; border-radius: 5px; text-align: center; font-size: 9pt; min-height: 25px; }"
+                " QPushButton:hover { background-color: #777; border: 1px solid #999; }"
+                " QPushButton:pressed { background-color: #444; }"
+            )
+
+        # About section readability
+        if theme == 'light':
+            self.about_label.setStyleSheet("QLabel { font-size: 9pt; line-height: 1.4; padding: 8px; color: #333; }")
+        else:
+            self.about_label.setStyleSheet("QLabel { font-size: 9pt; line-height: 1.4; padding: 8px; color: #CCC; }")
 
     def setup_settings_panel(self):
         """Create settings panel"""
@@ -132,8 +183,11 @@ class UISetup:
         
         # Update buttons
         self.screenshot_button.setText(tr.get_text("take_screenshot"))
+        self.screenshot_button.setToolTip(tr.get_text("snapshot_tooltip"))
         self.gallery_button.setText(tr.get_text("gallery"))
+        self.gallery_button.setToolTip(tr.get_text("gallery_tooltip"))
         self.load_file_button.setText(tr.get_text("load_file"))
+        self.load_file_button.setToolTip(tr.get_text("load_file_tooltip"))
         
         # Update camera button
         if self.camera_manager.camera_open:
@@ -146,8 +200,20 @@ class UISetup:
         # Update groups (new UI structure)
         self.color_blindness_group.setTitle(tr.get_text("color_blindness_type"))
         self.camera_settings_group.setTitle(tr.get_text("camera_settings"))
-        self.language_group.setTitle(tr.get_text("language"))
+        self.language_group.setTitle(tr.get_text("interface"))
         self.about_group.setTitle(tr.get_text("about"))
+        
+        # Update theme and language labels if they exist
+        if hasattr(self, 'language_group') and hasattr(self.language_group, 'layout'):
+            layout = self.language_group.layout()
+            if layout:
+                # Find and update language label (first label)
+                for i in range(layout.count()):
+                    widget = layout.itemAt(i).widget()
+                    if isinstance(widget, QLabel) and i == 0:  # First label is language
+                        widget.setText(tr.get_text("language"))
+                    elif isinstance(widget, QLabel) and i == 2:  # Third widget should be theme label
+                        widget.setText(tr.get_text("theme"))
         
         # Update color blindness combo box
         self.color_blindness_combo.clear()
@@ -161,6 +227,10 @@ class UISetup:
         
         # Update advanced settings button
         self.advanced_settings_button.setText(tr.get_text("advanced_settings"))
+        self.advanced_settings_button.setToolTip(tr.get_text("advanced_settings_tooltip"))
+        
+        # Update color blindness combo tooltip
+        self.color_blindness_combo.setToolTip(tr.get_text("color_blindness_type_tooltip"))
         
         # Update checkboxes (for internal use only)
         self.red_checkbox.setText(tr.get_text("detect_red"))
@@ -187,3 +257,7 @@ class UISetup:
         # Update camera interface if camera is not active
         if not self.camera_manager.camera_open:
             create_camera_interface(self, self.camera_feed_layout)
+
+        # Re-apply theme-specific component styles after text changes
+        if hasattr(self, 'apply_theme_to_components'):
+            self.apply_theme_to_components()
