@@ -17,14 +17,15 @@ class AdvancedSettingsDialog(QDialog):
         self.setWindowTitle(tr.get_text("advanced_settings"))
         self.setModal(True)
         
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setWindowTitle(tr.get_text("advanced_settings"))
-        self.setModal(True)
-        
         # Remove context help button for all themes
         self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        
+        # Set application icon
+        import os
+        from PyQt5.QtGui import QIcon
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "icons", "app_icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         
         # Responsive sizing - Adapt to screen size
         from PyQt5.QtWidgets import QApplication
@@ -94,6 +95,10 @@ class AdvancedSettingsDialog(QDialog):
         theme = getattr(self.parent, 'theme', 'dark') if self.parent else 'dark'
         self.apply_dialog_theme(theme)
         
+        # Apply title bar theme with delay
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(100, lambda: self._apply_dialog_title_bar(theme))
+        
     def apply_dialog_theme(self, theme: str = 'dark'):
         """Apply main theme for dialog (dark or light)"""
         if (theme or 'dark').lower() == 'light':
@@ -117,6 +122,30 @@ class AdvancedSettingsDialog(QDialog):
                 QScrollArea { background-color: #2b2b2b; border: none; }
                 QScrollArea > QWidget > QWidget { background-color: #2b2b2b; }
             """)
+
+    def _apply_dialog_title_bar(self, theme: str):
+        """Apply theme-appropriate title bar for dialog"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            # Get window handle
+            hwnd = int(self.winId())
+            
+            # DWMWA_USE_IMMERSIVE_DARK_MODE
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            
+            # Set dark/light mode for title bar
+            mode_value = 1 if (theme or 'dark').lower() == 'dark' else 0
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(ctypes.c_int(mode_value)),
+                ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception as e:
+            # Fallback - just print error, don't crash
+            print(f"Could not apply dialog title bar theme: {e}")
         
     def create_color_tab(self):
         """Create color selection tab - Compatible with main theme"""

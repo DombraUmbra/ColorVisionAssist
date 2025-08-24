@@ -31,28 +31,16 @@ def _apply_combo_theme(combo_box, parent):
                 border: 1px solid #2196F3;
             }
             QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border-left-width: 1px;
-                border-left-color: #CCC;
-                border-left-style: solid;
-                border-top-right-radius: 3px;
-                border-bottom-right-radius: 3px;
-                background-color: #FFFFFF;
+                width: 0px;
+                border: none;
+                background: transparent;
             }
             QComboBox::down-arrow {
-                width: 8px;
-                height: 8px;
-                margin: 2px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                color: #222;
-                selection-background-color: #2196F3;
-                selection-color: white;
-                border: 1px solid #CCC;
-                outline: none;
+                image: none;
+                border: none;
+                background: transparent;
+                width: 0px;
+                height: 0px;
             }
         """)
     else:
@@ -71,20 +59,16 @@ def _apply_combo_theme(combo_box, parent):
                 border: 1px solid #2196F3;
             }
             QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 20px;
-                border-left-width: 1px;
-                border-left-color: #666;
-                border-left-style: solid;
-                border-top-right-radius: 3px;
-                border-bottom-right-radius: 3px;
-                background-color: #555;
+                width: 0px;
+                border: none;
+                background: transparent;
             }
             QComboBox::down-arrow {
-                width: 8px;
-                height: 8px;
-                margin: 2px;
+                image: none;
+                border: none;
+                background: transparent;
+                width: 0px;
+                height: 0px;
             }
             QComboBox QAbstractItemView {
                 background-color: #555;

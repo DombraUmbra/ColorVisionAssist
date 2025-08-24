@@ -257,3 +257,6 @@ class EventHandlers:
         # Update combo box themes
         from ..ui_components.groups import update_combo_themes
         update_combo_themes(self)
+        
+        # Update any open dialog/gallery windows with new theme
+        self._update_child_window_themes()

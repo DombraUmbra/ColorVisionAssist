@@ -139,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Whisper of Colors\nVersion 1.1\n\nRemove the barriers, reveal your color.",
-                "tr": "Renklerin Fısıltısı\nSürüm 1.1\n\nSınırları kaldır, rengini belli et."
+                "en": "Whisper of Colors\nVersion 1.2\n\nRemove the barriers, reveal your color.",
+                "tr": "Renklerin Fısıltısı\nSürüm 1.2\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery

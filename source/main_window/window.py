@@ -47,6 +47,11 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         # UI setup (from UISetup mixin)
         self.setup_ui()
         
+        # Set application icon
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "icons", "app_icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         # Apply theme after UI setup - try to make Windows frame dark-compatible
         from ..ui_components import apply_theme
         apply_theme(self, self.theme)
@@ -77,6 +82,11 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                     color: #EEE;
                 }
             """)
+            
+            # Windows 10/11 dark title bar support - delayed to ensure window is ready
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(100, self._apply_dark_title_bar)
+                
         else:
             # Light theme - use default Windows styling
             self.setStyleSheet("""
@@ -85,6 +95,56 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                     color: #222;
                 }
             """)
+            
+            # Windows 10/11 light title bar - delayed to ensure window is ready
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(100, self._apply_light_title_bar)
+
+    def _apply_dark_title_bar(self):
+        """Apply dark title bar for Windows 10/11"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            # Get window handle
+            hwnd = int(self.winId())
+            
+            # DWMWA_USE_IMMERSIVE_DARK_MODE
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            
+            # Set dark mode for title bar
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(ctypes.c_int(1)),
+                ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception as e:
+            # Fallback - just print error, don't crash
+            print(f"Could not apply dark title bar: {e}")
+
+    def _apply_light_title_bar(self):
+        """Apply light title bar for Windows 10/11"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            # Get window handle
+            hwnd = int(self.winId())
+            
+            # DWMWA_USE_IMMERSIVE_DARK_MODE
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            
+            # Set light mode for title bar
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(ctypes.c_int(0)),
+                ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception as e:
+            # Fallback - just print error, don't crash
+            print(f"Could not apply light title bar: {e}")
 
     def _force_refresh_group_boxes(self):
         """Force refresh all QGroupBox widgets to apply proper theme styling"""
@@ -150,3 +210,22 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
             # Force update
             group_box.update()
             group_box.repaint()
+    
+    def _update_child_window_themes(self):
+        """Update theme for any open child dialogs/windows"""
+        from PyQt5.QtWidgets import QApplication
+        from ..ui_components.dialogs import AdvancedSettingsDialog
+        from ..ui_components.gallery import ScreenshotGallery
+        
+        # Find all open dialogs and galleries
+        for window in QApplication.topLevelWidgets():
+            if isinstance(window, AdvancedSettingsDialog):
+                window.apply_dialog_theme(self.theme)
+                # Apply title bar theme with delay
+                QTimer.singleShot(50, lambda w=window: w._apply_dialog_title_bar(self.theme))
+            elif isinstance(window, ScreenshotGallery):
+                window.apply_gallery_theme(self.theme)
+                # Force scroll area background with delay
+                QTimer.singleShot(100, lambda w=window: w._force_scroll_area_background(self.theme))
+                # Apply title bar theme with delay
+                QTimer.singleShot(150, lambda w=window: w._apply_gallery_title_bar(self.theme))
