@@ -557,6 +557,10 @@ class AdvancedSettingsDialog(QDialog):
                 break
         self.parent.color_blindness_combo.blockSignals(False)  # Re-enable signals
         
+        # Auto-save profile when advanced settings change
+        if hasattr(self.parent, 'auto_save_profile_on_change'):
+            self.parent.auto_save_profile_on_change()
+        
         # Close dialog
         self.accept()
     

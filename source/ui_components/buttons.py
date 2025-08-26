@@ -11,20 +11,21 @@ def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dar
     style_dict_dark = {
         "default": """
             QPushButton {
-                background-color: #555;
-                color: white;
-                padding: 8px 6px;
-                border-radius: 5px;
-                font-size: 9pt;
-                min-height: 25px;
-                text-align: center;
+                background-color: #3A3A3A;
+                color: #CCC;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+                padding: 8px 12px;
+                min-height: 20px;
             }
             QPushButton:hover {
-                background-color: #777;
-                border: 1px solid #999;
+                background-color: #4A4A4A;
+                color: #64B5F6;
             }
             QPushButton:pressed {
-                background-color: #444;
+                background-color: #5A5A5A;
             }
         """,
         "start": """
@@ -122,21 +123,21 @@ def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dar
     style_dict_light = {
         "default": """
             QPushButton {
-                background-color: #E0E0E0;
-                color: #222;
-                padding: 8px 6px;
-                border-radius: 5px;
-                font-size: 9pt;
-                min-height: 25px;
-                text-align: center;
-                border: 1px solid #C7C7C7;
+                background-color: #F8F9FA;
+                color: #495057;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+                padding: 8px 12px;
+                min-height: 20px;
             }
             QPushButton:hover {
-                background-color: #EEEEEE;
-                border: 1px solid #1976D2;
+                background-color: #E9ECEF;
+                color: #1976D2;
             }
             QPushButton:pressed {
-                background-color: #D5D5D5;
+                background-color: #DEE2E6;
             }
         """,
         "start": """

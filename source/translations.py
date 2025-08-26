@@ -139,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Whisper of Colors\nVersion 1.2\n\nRemove the barriers, reveal your color.",
-                "tr": "Renklerin Fısıltısı\nSürüm 1.2\n\nSınırları kaldır, rengini belli et."
+                "en": "Whisper of Colors\nVersion 1.3\n\nRemove the barriers, reveal your color.",
+                "tr": "Renklerin Fısıltısı\nSürüm 1.3\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery
@@ -235,8 +235,8 @@ class Translations:
                 "tr": "Kamera İzni"
             },
             "camera_permission_text": {
-                "en": "ColorVisionAid needs access to your camera to detect colors.",
-                "tr": "ColorVisionAid renkleri algılamak için kamera erişimine ihtiyaç duyar."
+                "en": "Whisper of Colors needs access to your camera to detect colors.",
+                "tr": "Renklerin Fısıltısı renkleri algılamak için kamera erişimine ihtiyaç duyar."
             },
             
             # Camera permission buttons
@@ -546,6 +546,198 @@ class Translations:
             "high_sensitivity_desc": {
                 "en": "Detects distant and small objects. May have more false detections but catches everything.",
                 "tr": "Uzak ve küçük nesneleri algılar. Daha fazla yanlış algılama olabilir ama her şeyi yakalar."
+            },
+            
+            # Basic UI elements,
+            
+            # Basic UI elements
+            "apply": {
+                "en": "Apply",
+                "tr": "Uygula"
+            },
+            "save": {
+                "en": "Save",
+                "tr": "Kaydet"
+            },
+            "cancel": {
+                "en": "Cancel",
+                "tr": "İptal"
+            },
+            "success": {
+                "en": "Success",
+                "tr": "Başarılı"
+            },
+            "error": {
+                "en": "Error",
+                "tr": "Hata"
+            },
+            
+            # Simplified profile system
+            "save_current_settings": {
+                "en": "Save Current Settings",
+                "tr": "Mevcut Ayarları Kaydet"
+            },
+            "save_settings_description": {
+                "en": "Save your current application settings as a profile for easy access later.",
+                "tr": "Mevcut uygulama ayarlarınızı daha sonra kolay erişim için profil olarak kaydedin."
+            },
+            "profile_name": {
+                "en": "Profile Name",
+                "tr": "Profil Adı"
+            },
+            "enter_profile_name": {
+                "en": "Enter profile name...",
+                "tr": "Profil adını girin..."
+            },
+            "or_replace_existing": {
+                "en": "Or Replace Existing Profile",
+                "tr": "Veya Mevcut Profili Değiştir"
+            },
+            "make_default_profile": {
+                "en": "Make this my default profile",
+                "tr": "Bunu varsayılan profilim yap"
+            },
+            "save_profile": {
+                "en": "Save Profile",
+                "tr": "Profili Kaydet"
+            },
+            "load_profile": {
+                "en": "Load Profile",
+                "tr": "Profil Yükle"
+            },
+            "select_profile_to_load": {
+                "en": "Select a profile to load its settings:",
+                "tr": "Ayarlarını yüklemek için bir profil seçin:"
+            },
+            "load_selected": {
+                "en": "Load Selected",
+                "tr": "Seçileni Yükle"
+            },
+            "delete_selected": {
+                "en": "Delete Selected",
+                "tr": "Seçileni Sil"
+            },
+            "custom_profile": {
+                "en": "Custom Profile",
+                "tr": "Özel Profil"
+            },
+            "please_enter_profile_name": {
+                "en": "Please enter a profile name",
+                "tr": "Lütfen bir profil adı girin"
+            },
+            "profile_exists": {
+                "en": "Profile Already Exists",
+                "tr": "Profil Zaten Mevcut"
+            },
+            "profile_exists_overwrite": {
+                "en": "A profile named '{}' already exists. Do you want to overwrite it?",
+                "tr": "'{}' adında bir profil zaten mevcut. Üzerine yazmak istiyor musunuz?"
+            },
+            "failed_to_create_profile": {
+                "en": "Failed to create profile from current settings",
+                "tr": "Mevcut ayarlardan profil oluşturulamadı"
+            },
+            "profile_saved_successfully": {
+                "en": "Profile '{}' saved successfully!",
+                "tr": "'{}' profili başarıyla kaydedildi!"
+            },
+            "failed_to_save_profile": {
+                "en": "Failed to save profile",
+                "tr": "Profil kaydedilemedi"
+            },
+            "please_select_profile": {
+                "en": "Please select a profile",
+                "tr": "Lütfen bir profil seçin"
+            },
+            "profile_loaded_successfully": {
+                "en": "Profile '{}' loaded successfully!",
+                "tr": "'{}' profili başarıyla yüklendi!"
+            },
+            "failed_to_load_profile": {
+                "en": "Failed to load profile",
+                "tr": "Profil yüklenemedi"
+            },
+            "cannot_delete_last_profile": {
+                "en": "Cannot delete the last remaining profile",
+                "tr": "Kalan son profil silinemez"
+            },
+            "confirm_deletion": {
+                "en": "Confirm Deletion",
+                "tr": "Silmeyi Onayla"
+            },
+            "delete_profile": {
+                "en": "Delete Profile",
+                "tr": "Profili Sil"
+            },
+            "are_you_sure_delete_profile": {
+                "en": "Are you sure you want to delete profile '{}'?",
+                "tr": "'{}' profilini silmek istediğinizden emin misiniz?"
+            },
+            "profile_deleted_successfully": {
+                "en": "Profile deleted successfully",
+                "tr": "Profil başarıyla silindi"
+            },
+            "failed_to_delete_profile": {
+                "en": "Failed to delete profile",
+                "tr": "Profil silinemedi"
+            },
+            "quick_save_profile": {
+                "en": "💾 Save Settings",
+                "tr": "💾 Ayarları Kaydet"
+            },
+            "quick_load_profile": {
+                "en": "📂 Load Profile",
+                "tr": "📂 Profil Yükle"
+            },
+            
+            # Auto-saving profile selector
+            "current_profile": {
+                "en": "Current Profile",
+                "tr": "Mevcut Profil"
+            },
+            "create_first_profile": {
+                "en": "Create a profile",
+                "tr": "Bir profil oluştur"
+            },
+            "profile_options": {
+                "en": "Profile options",
+                "tr": "Profil seçenekleri"
+            },
+            "rename_profile": {
+                "en": "Rename Profile",
+                "tr": "Profili Yeniden Adlandır"
+            },
+            "duplicate_profile": {
+                "en": "Duplicate Profile",
+                "tr": "Profili Kopyala"
+            },
+            "enter_new_profile_name": {
+                "en": "Enter new profile name",
+                "tr": "Yeni profil adını girin"
+            },
+            "profile_name_already_exists": {
+                "en": "A profile named '{}' already exists",
+                "tr": "'{}' adında bir profil zaten mevcut"
+            },
+            "profile_created_successfully": {
+                "en": "Profile '{}' created successfully!",
+                "tr": "'{}' profili başarıyla oluşturuldu!"
+            },
+            "profile_renamed_successfully": {
+                "en": "Profile '{}' renamed to '{}' successfully!",
+                "tr": "'{}' profili '{}' olarak başarıyla yeniden adlandırıldı!"
+            },
+            "failed_to_rename_profile": {
+                "en": "Failed to rename profile",
+                "tr": "Profil yeniden adlandırılamadı"
+            },
+            "profile_duplicated_successfully": {
+                "en": "Profile duplicated as '{}' successfully!",
+                "tr": "Profil '{}' olarak başarıyla kopyalandı!"
+            },
+            "failed_to_duplicate_profile": {
+                "en": "Failed to duplicate profile",
+                "tr": "Profil kopyalanamadı"
             }
         }
     

@@ -104,23 +104,59 @@ class UISetup:
 
         # Reset camera permission button
         if theme == 'light':
-            self.permission_reset_button.setStyleSheet(
-                "QPushButton { background-color: #E0E0E0; color: #222; padding: 8px 6px; border-radius: 5px; text-align: center; font-size: 9pt; min-height: 25px; border: 1px solid #C7C7C7; }"
-                " QPushButton:hover { background-color: #EEEEEE; border: 1px solid #1976D2; }"
-                " QPushButton:pressed { background-color: #D5D5D5; }"
-            )
+            self.permission_reset_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #F8F9FA;
+                    color: #495057;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 10pt;
+                    padding: 8px 12px;
+                    min-height: 20px;
+                }
+                QPushButton:hover {
+                    background-color: #E9ECEF;
+                    color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #DEE2E6;
+                }
+            """)
         else:
-            self.permission_reset_button.setStyleSheet(
-                "QPushButton { background-color: #555; color: white; padding: 8px 6px; border-radius: 5px; text-align: center; font-size: 9pt; min-height: 25px; }"
-                " QPushButton:hover { background-color: #777; border: 1px solid #999; }"
-                " QPushButton:pressed { background-color: #444; }"
-            )
+            self.permission_reset_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #3A3A3A;
+                    color: #CCC;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 10pt;
+                    padding: 8px 12px;
+                    min-height: 20px;
+                }
+                QPushButton:hover {
+                    background-color: #4A4A4A;
+                    color: #64B5F6;
+                }
+                QPushButton:pressed {
+                    background-color: #5A5A5A;
+                }
+            """)
 
         # About section readability
         if theme == 'light':
             self.about_label.setStyleSheet("QLabel { font-size: 9pt; line-height: 1.4; padding: 8px; color: #333; }")
         else:
             self.about_label.setStyleSheet("QLabel { font-size: 9pt; line-height: 1.4; padding: 8px; color: #CCC; }")
+
+        # Update camera interface if not currently running
+        if not self.camera_manager.camera_open:
+            # Recreate camera interface with updated theme
+            create_camera_interface(self, self.camera_feed_layout)
+        
+        # Update any existing camera permission interface 
+        self._update_camera_permission_interface_theme()
 
     def setup_settings_panel(self):
         """Create settings panel"""
@@ -138,16 +174,98 @@ class UISetup:
         self.settings_layout.setContentsMargins(5, 5, 5, 5)
         
         # Create groups from UI Components module
+        # Add profile selector first
+        from ..ui_components.profile_selector import ProfileSelector
+        self.profile_selector = ProfileSelector(self)
+        self.profile_selector.profile_changed.connect(self.on_profile_changed)
+        
         self.color_blindness_group = create_color_blindness_type_group(self)
         self.camera_settings_group = create_camera_settings_group(self)
         self.language_group = create_language_group(self)
         self.about_group = create_about_group(self)
         
-        # Add setting groups to panel
+        # Add setting groups to panel - profile selector first
+        self.settings_layout.addWidget(self.profile_selector)
         self.settings_layout.addWidget(self.color_blindness_group)
         self.settings_layout.addWidget(self.camera_settings_group)
         self.settings_layout.addWidget(self.language_group)
         self.settings_layout.addWidget(self.about_group)
+
+    def _update_camera_permission_interface_theme(self):
+        """Update camera permission interface theme if it's currently visible"""
+        # Check if camera permission interface is currently shown
+        for i in range(self.camera_feed_layout.count()):
+            widget = self.camera_feed_layout.itemAt(i).widget()
+            if widget and hasattr(widget, 'layout'):
+                layout = widget.layout()
+                if layout:
+                    # Look for permission text and camera icon to update
+                    for j in range(layout.count()):
+                        child_widget = layout.itemAt(j).widget()
+                        if child_widget:
+                            # Update camera icon with responsive sizing
+                            if isinstance(child_widget, QLabel) and ("🎥" in child_widget.text() or "📷" in child_widget.text() or "📹" in child_widget.text() or "●REC" in child_widget.text()):
+                                theme = getattr(self, 'theme', 'dark').lower()
+                                
+                                # Calculate responsive icon size based on current window size
+                                window_width = self.width() if hasattr(self, 'width') else 1000
+                                responsive_icon_size = max(35, min(80, int(window_width * 0.06)))
+                                
+                                if theme == 'light':
+                                    child_widget.setStyleSheet(f"""
+                                        font-size: {responsive_icon_size}pt; 
+                                        color: #333; 
+                                        background-color: transparent; 
+                                        border: none; 
+                                        font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+                                    """)
+                                else:
+                                    child_widget.setStyleSheet(f"""
+                                        font-size: {responsive_icon_size}pt; 
+                                        color: #BBB; 
+                                        background-color: transparent; 
+                                        border: none; 
+                                        font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+                                    """)
+                            # Update permission text with responsive sizing
+                            elif isinstance(child_widget, QLabel) and tr.get_text("camera_permission_text") in child_widget.text():
+                                theme = getattr(self, 'theme', 'dark').lower()
+                                
+                                # Calculate responsive text size
+                                window_width = self.width() if hasattr(self, 'width') else 1000
+                                responsive_text_size = max(10, min(16, int(window_width * 0.014)))
+                                responsive_margin = max(10, min(25, int(window_width * 0.02)))
+                                
+                                if theme == 'light':
+                                    child_widget.setStyleSheet(f"color: #222; font-size: {responsive_text_size}pt; margin: {responsive_margin}px;")
+                                else:
+                                    child_widget.setStyleSheet(f"color: white; font-size: {responsive_text_size}pt; margin: {responsive_margin}px;")
+                            # Update checkbox
+                            elif hasattr(child_widget, 'layout'):
+                                inner_layout = child_widget.layout()
+                                if inner_layout:
+                                    for k in range(inner_layout.count()):
+                                        inner_widget = inner_layout.itemAt(k).widget()
+                                        if isinstance(inner_widget, QCheckBox):
+                                            theme = getattr(self, 'theme', 'dark').lower()
+                                            if theme == 'light':
+                                                inner_widget.setStyleSheet("""
+                                                    QCheckBox {
+                                                        color: #222;
+                                                    }
+                                                    QCheckBox:hover {
+                                                        color: #1976D2;
+                                                    }
+                                                """)
+                                            else:
+                                                inner_widget.setStyleSheet("""
+                                                    QCheckBox {
+                                                        color: white;
+                                                    }
+                                                    QCheckBox:hover {
+                                                        color: #2196F3;
+                                                    }
+                                                """)
         self.settings_layout.addStretch()
         
         # Default color selection checkboxes (for advanced settings)

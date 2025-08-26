@@ -16,6 +16,7 @@ from ..ui_components import ScreenshotGallery
 from ..color_detection import ColorDetector
 from .camera import CameraManager
 from ..color_detection.utils import draw_text_with_utf8
+from ..profile_manager import ProfileManager, UserProfile
 
 # Import mixin classes
 from .ui_setup import UISetup
@@ -30,15 +31,31 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
     def __init__(self):
         super().__init__()
 
+        # Initialize profile manager
+        self.profile_manager = ProfileManager()
+        
         # Load settings
         self.settings = QSettings("ColorVisionAid", "CVA")
-        language = self.settings.value("language", "en")
+        
+        # Load current profile or create default
+        current_profile_name = self.settings.value("current_profile", "Default Profile")
+        self.current_profile = self.profile_manager.load_profile(current_profile_name)
+        
+        if not self.current_profile:
+            # Create default profile if not found
+            self.current_profile = self.profile_manager.create_profile("Default Profile")
+            self.profile_manager.save_profile(self.current_profile)
+        
+        # Apply profile settings to QSettings
+        self.profile_manager.apply_profile_to_settings(self.current_profile)
+        
+        # Set language and theme from profile
+        language = self.current_profile.language
         tr.set_language(language)
-        # Theme preference
-        self.theme = self.settings.value("theme", "dark")
+        self.theme = self.current_profile.theme
 
-        # Load user preferences
-        self.camera_permission = self.settings.value("camera_permission", "ask")  # "granted", "denied", "ask"
+        # Load user preferences from profile
+        self.camera_permission = self.current_profile.camera_permission
 
         # Create camera manager and color detector
         self.camera_manager = CameraManager(self)
@@ -67,10 +84,32 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         # Ensure combo boxes get proper theme on startup
         from ..ui_components.groups import update_combo_themes
         update_combo_themes(self)
+        
+        # Apply theme to profile selector after main theme application
+        if hasattr(self, 'profile_selector'):
+            self.profile_selector.apply_theme()
+
+        # Apply window position/size from profile only at startup
+        self._apply_startup_window_properties()
 
         # Timer for updating the camera feed
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
+    
+    def _apply_startup_window_properties(self):
+        """Apply window position and size from profile only at application startup"""
+        if self.current_profile:
+            try:
+                # Apply window properties from profile
+                if not self.current_profile.is_maximized:
+                    self.resize(self.current_profile.window_width, self.current_profile.window_height)
+                    self.move(self.current_profile.window_x, self.current_profile.window_y)
+                else:
+                    self.showMaximized()
+            except Exception as e:
+                print(f"Warning: Could not apply window properties from profile: {e}")
+                # Use default window size if profile properties are invalid
+                self.resize(1000, 600)
         
     def _apply_window_theme(self):
         """Apply theme-appropriate window styling"""
@@ -168,42 +207,36 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 print(f"Applying light theme to QGroupBox: {group_box.title()}")
                 group_box.setStyleSheet("""
                     QGroupBox {
-                        border: 2px solid #DDD;
+                        font-weight: bold;
+                        border: 2px solid #E0E0E0;
                         border-radius: 5px;
-                        margin-top: 10px;
+                        margin: 8px 0px;
                         padding-top: 10px;
-                        background-color: #F8F9FA;
-                        font-size: 9pt;
-                        color: #222;
+                        background-color: #FAFAFA;
                     }
                     QGroupBox::title {
                         subcontrol-origin: margin;
-                        subcontrol-position: top left;
-                        padding: 5px 8px;
-                        font-weight: bold;
-                        color: #1565C0;
-                        background-color: transparent;
+                        left: 10px;
+                        padding: 0 8px 0 8px;
+                        color: #1976D2;
                     }
                 """)
             else:
                 print(f"Applying dark theme to QGroupBox: {group_box.title()}")
                 group_box.setStyleSheet("""
                     QGroupBox {
-                        border: 2px solid #555;
+                        font-weight: bold;
+                        border: 2px solid #444;
                         border-radius: 5px;
-                        margin-top: 10px;
+                        margin: 8px 0px;
                         padding-top: 10px;
-                        background-color: #444;
-                        font-size: 9pt;
-                        color: #EEE;
+                        background-color: #333;
                     }
                     QGroupBox::title {
                         subcontrol-origin: margin;
-                        subcontrol-position: top left;
-                        padding: 5px 8px;
-                        font-weight: bold;
+                        left: 10px;
+                        padding: 0 8px 0 8px;
                         color: #64B5F6;
-                        background-color: transparent;
                     }
                 """)
             
@@ -229,3 +262,128 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 QTimer.singleShot(100, lambda w=window: w._force_scroll_area_background(self.theme))
                 # Apply title bar theme with delay
                 QTimer.singleShot(150, lambda w=window: w._apply_gallery_title_bar(self.theme))
+    
+    def resizeEvent(self, event):
+        """Handle window resize events to update responsive UI elements"""
+        super().resizeEvent(event)
+        
+        # Update camera interface with new responsive sizes if camera is not running
+        if not self.camera_manager.camera_open:
+            # Recreate camera interface with new responsive sizing
+            from ..ui_components import create_camera_interface
+            create_camera_interface(self, self.camera_feed_layout)
+        
+        # Update any existing camera permission interfaces
+        self._update_camera_permission_interface_theme()
+    
+    def open_profile_manager(self):
+        """Open profile management dialog"""
+        from ..ui_components import ProfileDialog
+        
+        dialog = ProfileDialog(self, self.current_profile)
+        dialog.profile_changed.connect(self.apply_profile)
+        dialog.exec_()
+    
+    def apply_profile(self, profile: UserProfile):
+        """Apply a profile to the application"""
+        # Update current profile
+        self.current_profile = profile
+        
+        # Apply profile settings
+        self.profile_manager.apply_profile_to_settings(profile)
+        
+        # Update language if changed
+        if tr.current_language != profile.language:
+            tr.set_language(profile.language)
+            self.retranslate_ui()
+        
+        # Update theme if changed
+        if self.theme != profile.theme:
+            self.theme = profile.theme
+            from ..ui_components import apply_theme
+            apply_theme(self, self.theme)
+            self._apply_window_theme()
+            
+            # Apply theme to components
+            if hasattr(self, 'apply_theme_to_components'):
+                self.apply_theme_to_components()
+            
+            # Force refresh group boxes
+            self._force_refresh_group_boxes()
+            
+            # Update child windows
+            self._update_child_window_themes()
+        
+        # Update window geometry if specified in profile
+        if profile.window_width > 0 and profile.window_height > 0:
+            self.resize(profile.window_width, profile.window_height)
+            
+        if profile.window_x >= 0 and profile.window_y >= 0:
+            self.move(profile.window_x, profile.window_y)
+            
+        if profile.is_maximized:
+            self.showMaximized()
+        
+        # Update camera permission
+        self.camera_permission = profile.camera_permission
+        
+        # Update status
+        self.status_bar.showMessage(f"{tr.get_text('profile_applied')}: {profile.name}" if tr.get_text('profile_applied') != 'profile_applied' else f"Profile applied: {profile.name}")
+        
+        # Save the profile as current
+        self.profile_manager.save_profile(profile)
+    
+    def save_current_settings_to_profile(self):
+        """Save current application state to the current profile"""
+        if not self.current_profile:
+            return
+        
+        # Update profile with current settings
+        self.current_profile.language = tr.current_language
+        self.current_profile.theme = self.theme
+        self.current_profile.camera_permission = self.camera_permission
+        
+        # Update window geometry
+        self.current_profile.window_width = self.width()
+        self.current_profile.window_height = self.height()
+        self.current_profile.window_x = self.x()
+        self.current_profile.window_y = self.y()
+        self.current_profile.is_maximized = self.isMaximized()
+        
+        # Save advanced settings if available
+        if hasattr(self, 'detection_sensitivity'):
+            self.current_profile.detection_sensitivity = getattr(self, 'detection_sensitivity', 0.5)
+        if hasattr(self, 'color_enhancement'):
+            self.current_profile.color_enhancement = getattr(self, 'color_enhancement', True)
+        if hasattr(self, 'voice_feedback'):
+            self.current_profile.voice_feedback = getattr(self, 'voice_feedback', False)
+        if hasattr(self, 'auto_detection'):
+            self.current_profile.auto_detection = getattr(self, 'auto_detection', True)
+        
+        # Save to file
+        self.profile_manager.save_profile(self.current_profile)
+    
+    def retranslate_ui(self):
+        """Update UI texts when language changes"""
+        # Update window title
+        self.setWindowTitle(tr.get_text("app_title"))
+        
+        # Update status bar
+        self.status_bar.showMessage(tr.get_text("ready"))
+        
+        # Recreate UI groups to update texts
+        # This is a simplified approach - in production you might want more granular updates
+        self.setup_settings_panel()
+        
+        # Update camera interface if not running
+        if not self.camera_manager.camera_open:
+            from ..ui_components import create_camera_interface
+            create_camera_interface(self, self.camera_feed_layout)
+    
+    def closeEvent(self, event):
+        """Handle application close event"""
+        # Save current settings to profile before closing
+        self.save_current_settings_to_profile()
+        
+        # Call parent close event
+        super().closeEvent(event)

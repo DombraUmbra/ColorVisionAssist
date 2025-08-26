@@ -61,7 +61,12 @@ class CameraHandlers:
             
         # Show startup message
         starting_label = QLabel(tr.get_text("camera_initializing"))
-        starting_label.setStyleSheet("color: white; font-size: 12pt;")
+        # Theme-aware styling for startup message
+        theme = getattr(self, 'theme', 'dark').lower()
+        if theme == 'light':
+            starting_label.setStyleSheet("color: #222; font-size: 12pt;")
+        else:
+            starting_label.setStyleSheet("color: white; font-size: 12pt;")
         starting_label.setAlignment(Qt.AlignCenter)
         self.camera_feed_layout.addWidget(starting_label)
         QApplication.processEvents()  # Update UI immediately

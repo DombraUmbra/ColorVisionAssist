@@ -70,18 +70,7 @@ def apply_dark_theme(widget):
             background-color: #666;
             border: 1px solid #2196F3;
         }
-        QComboBox::drop-down {
-            width: 0px;
-            border: none;
-            background: transparent;
-        }
-        QComboBox::down-arrow {
-            image: none;
-            border: none;
-            background: transparent;
-            width: 0px;
-            height: 0px;
-        }
+    /* Drop-down/arrow styling is handled per-component for better control */
         QComboBox QAbstractItemView {
             background-color: #555;
             color: white;
@@ -161,18 +150,7 @@ def apply_light_theme(widget):
             background-color: #FAFAFA;
             border: 1px solid #1976D2;
         }
-        QComboBox::drop-down {
-            width: 0px;
-            border: none;
-            background: transparent;
-        }
-        QComboBox::down-arrow {
-            image: none;
-            border: none;
-            background: transparent;
-            width: 0px;
-            height: 0px;
-        }
+    /* Drop-down/arrow styling is handled per-component for better control */
         QComboBox QAbstractItemView {
             background-color: #FFFFFF;
             color: #222;
@@ -204,55 +182,88 @@ def create_camera_interface(parent, layout):
         if child:
             child.setParent(None)
     
+    # Calculate responsive sizes based on window size
+    window_width = parent.width() if hasattr(parent, 'width') else 1000
+    window_height = parent.height() if hasattr(parent, 'height') else 600
+    
+    # Calculate responsive icon size (minimum 40pt, maximum 120pt)
+    base_icon_size = max(40, min(120, int(window_width * 0.08)))
+    
+    # Calculate responsive message size (minimum 10pt, maximum 18pt)
+    base_message_size = max(10, min(18, int(window_width * 0.015)))
+    
+    # Calculate responsive margins
+    responsive_margin = max(10, min(40, int(window_width * 0.025)))
+    
     # Start message
     start_widget = QWidget()
     start_layout = QVBoxLayout()
-    start_layout.setContentsMargins(20, 20, 20, 20)
+    start_layout.setContentsMargins(responsive_margin, responsive_margin, responsive_margin, responsive_margin)
     
-    # Icon/Placeholder
-    camera_icon = QLabel("📷")
-    # Theme-aware styling for camera icon and message
+    # Icon/Placeholder - Use a camera icon with fallback
+    try:
+        camera_icon = QLabel("🎥")  # Video camera icon - widely supported
+    except:
+        try:
+            camera_icon = QLabel("📷")  # Fallback to photo camera
+        except:
+            camera_icon = QLabel("📹")  # Alternative camera symbol
+        
+    # Additional fallback in case of encoding issues
+    if not camera_icon.text() or len(camera_icon.text()) == 0:
+        camera_icon.setText("●REC")  # Simple text fallback
+        
+    # Theme-aware styling for camera icon and message with responsive sizing
     theme = getattr(parent, 'theme', 'dark').lower()
     if theme == 'light':
-        camera_icon.setStyleSheet("""
-            QLabel {
-                font-size: 60pt;
-                color: #999;
+        camera_icon.setStyleSheet(f"""
+            QLabel {{
+                font-size: {base_icon_size}pt;
+                color: #333;
                 text-align: center;
-            }
+                background-color: transparent;
+                border: none;
+                margin: {responsive_margin}px;
+                font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+            }}
         """)
     else:
-        camera_icon.setStyleSheet("""
-            QLabel {
-                font-size: 60pt;
-                color: #666;
+        camera_icon.setStyleSheet(f"""
+            QLabel {{
+                font-size: {base_icon_size}pt;
+                color: #BBB;
                 text-align: center;
-            }
+                background-color: transparent;
+                border: none;
+                margin: {responsive_margin}px;
+                font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+            }}
         """)
     camera_icon.setAlignment(Qt.AlignCenter)
     start_layout.addWidget(camera_icon)
     
-    # Start message
+    # Start message with responsive sizing
     start_message = QLabel(tr.get_text("camera_start_message"))
+    responsive_padding = max(5, min(15, int(window_width * 0.012)))
     if theme == 'light':
-        start_message.setStyleSheet("""
-            QLabel {
-                font-size: 12pt;
-                color: #555;
+        start_message.setStyleSheet(f"""
+            QLabel {{
+                font-size: {base_message_size}pt;
+                color: #222;
                 text-align: center;
-                margin: 10px;
-                padding: 10px;
-            }
+                margin: {responsive_padding}px;
+                padding: {responsive_padding}px;
+            }}
         """)
     else:
-        start_message.setStyleSheet("""
-            QLabel {
-                font-size: 12pt;
+        start_message.setStyleSheet(f"""
+            QLabel {{
+                font-size: {base_message_size}pt;
                 color: #CCC;
                 text-align: center;
-                margin: 10px;
-                padding: 10px;
-            }
+                margin: {responsive_padding}px;
+                padding: {responsive_padding}px;
+            }}
         """)
     start_message.setAlignment(Qt.AlignCenter)
     start_message.setWordWrap(True)

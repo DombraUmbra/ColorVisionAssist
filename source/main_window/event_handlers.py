@@ -198,6 +198,9 @@ class EventHandlers:
         elif type_code == "custom":
             # Custom color selection - Open advanced settings
             self.open_advanced_settings()
+        
+        # Auto-save profile when color blindness type changes
+        self.auto_save_profile_on_change()
 
     def open_advanced_settings(self):
         """Open advanced settings dialog"""
@@ -208,6 +211,11 @@ class EventHandlers:
         """Change application language"""
         language_code = self.language_combo.itemData(index)
         if tr.set_language(language_code):
+            # Update current profile
+            if hasattr(self, 'current_profile') and self.current_profile:
+                self.current_profile.language = language_code
+                self.profile_manager.save_profile(self.current_profile)
+            
             # Save language setting
             self.settings.setValue("language", language_code)
             
@@ -234,11 +242,20 @@ class EventHandlers:
                 self.theme_combo.setCurrentIndex(restore_index)
                 self.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
                 self.theme_combo.blockSignals(False)
+            
+            # Auto-save profile
+            self.auto_save_profile_on_change()
 
     def change_theme(self, index):
         """Change application theme"""
         theme_value = self.theme_combo.itemData(index) if hasattr(self, 'theme_combo') else 'dark'
         self.theme = theme_value or 'dark'
+        
+        # Update current profile
+        if hasattr(self, 'current_profile') and self.current_profile:
+            self.current_profile.theme = self.theme
+            self.profile_manager.save_profile(self.current_profile)
+        
         # Persist and apply
         self.settings.setValue("theme", self.theme)
         
@@ -254,9 +271,33 @@ class EventHandlers:
         if hasattr(self, '_force_refresh_group_boxes'):
             self._force_refresh_group_boxes()
         
+        # Update profile selector theme (after group box refresh)
+        if hasattr(self, 'profile_selector'):
+            self.profile_selector.apply_theme()
+        
         # Update combo box themes
         from ..ui_components.groups import update_combo_themes
         update_combo_themes(self)
         
         # Update any open dialog/gallery windows with new theme
         self._update_child_window_themes()
+        
+        # Auto-save profile
+        self.auto_save_profile_on_change()
+
+    def on_profile_changed(self, profile_name):
+        """Handle profile change from profile selector"""
+        self.status_bar.showMessage(tr.get_text("profile_loaded_successfully", profile_name), 2000)
+        
+        # Update window title
+        title = f"ColorVisionAid - {profile_name}"
+        self.setWindowTitle(title)
+        
+        # Update auto-save reference
+        if hasattr(self, 'profile_selector'):
+            self.profile_selector.auto_save_current_profile()
+    
+    def auto_save_profile_on_change(self):
+        """Auto-save current profile when any setting changes"""
+        if hasattr(self, 'profile_selector'):
+            self.profile_selector.auto_save_current_profile()

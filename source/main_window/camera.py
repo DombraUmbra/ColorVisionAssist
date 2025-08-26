@@ -118,25 +118,71 @@ def show_camera_permission_interface(parent, camera_feed_layout, grant_callback=
     # Create permission layout
     permission_layout = QVBoxLayout()
     
-    # Add camera icon - update icon path
+    # Add camera icon - update icon path with responsive sizing
     camera_icon_label = QLabel()
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons', 'camera_icon.png')
     camera_icon = QPixmap(icon_path)
+    
+    # Calculate responsive sizes based on window size
+    window_width = parent.width() if hasattr(parent, 'width') else 1000
+    window_height = parent.height() if hasattr(parent, 'height') else 600
+    
+    # Calculate responsive icon size (minimum 35pt, maximum 80pt)
+    responsive_icon_size = max(35, min(80, int(window_width * 0.06)))
+    
     if camera_icon.isNull():
-        # If icon file doesn't exist, create a text placeholder
-        camera_icon_label.setText("📷")
-        camera_icon_label.setStyleSheet("font-size: 48pt; color: #4CAF50;")
+        # If icon file doesn't exist, create a text placeholder with theme-aware styling
+        try:
+            camera_icon_label.setText("🎥")  # Video camera icon - widely supported
+        except:
+            try:
+                camera_icon_label.setText("📷")  # Fallback to photo camera
+            except:
+                camera_icon_label.setText("📹")  # Alternative camera symbol
+            
+        # Additional fallback in case of encoding issues
+        if not camera_icon_label.text() or len(camera_icon_label.text()) == 0:
+            camera_icon_label.setText("●REC")  # Simple text fallback
+        
+        theme = getattr(parent, 'theme', 'dark').lower()
+        if theme == 'light':
+            camera_icon_label.setStyleSheet(f"""
+                font-size: {responsive_icon_size}pt; 
+                color: #333; 
+                background-color: transparent; 
+                border: none; 
+                font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+            """)
+        else:
+            camera_icon_label.setStyleSheet(f"""
+                font-size: {responsive_icon_size}pt; 
+                color: #BBB; 
+                background-color: transparent; 
+                border: none; 
+                font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+            """)
     else:
-        # Scale icon to appropriate size - Fix Qt constants
-        camera_icon = camera_icon.scaled(QSize(64, 64), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        # Scale icon to appropriate size based on window size
+        icon_size = max(48, min(96, int(window_width * 0.08)))
+        camera_icon = camera_icon.scaled(QSize(icon_size, icon_size), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         camera_icon_label.setPixmap(camera_icon)
     
     camera_icon_label.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
     permission_layout.addWidget(camera_icon_label)
     
-    # Add permission text
+    # Add permission text with responsive sizing
     permission_text = QLabel(tr.get_text("camera_permission_text"))
-    permission_text.setStyleSheet("color: white; font-size: 12pt; margin: 15px;")
+    
+    # Calculate responsive text size (minimum 10pt, maximum 16pt)
+    responsive_text_size = max(10, min(16, int(window_width * 0.014)))
+    responsive_margin = max(10, min(25, int(window_width * 0.02)))
+    
+    # Theme-aware styling for permission text with responsive sizing
+    theme = getattr(parent, 'theme', 'dark').lower()
+    if theme == 'light':
+        permission_text.setStyleSheet(f"color: #222; font-size: {responsive_text_size}pt; margin: {responsive_margin}px;")
+    else:
+        permission_text.setStyleSheet(f"color: white; font-size: {responsive_text_size}pt; margin: {responsive_margin}px;")
     permission_text.setWordWrap(True)
     permission_text.setAlignment(Qt.AlignCenter)  # Fixed: use Qt.AlignCenter
     permission_layout.addWidget(permission_text)
@@ -187,17 +233,28 @@ def show_camera_permission_interface(parent, camera_feed_layout, grant_callback=
     if deny_callback:
         deny_button.clicked.connect(deny_callback)
     
-    # Add checkbox to remember decision with hover effect
+    # Add checkbox to remember decision with theme-aware hover effect
     remember_checkbox = QCheckBox(tr.get_text("remember_decision"))
     remember_checkbox.setToolTip(tr.get_text("remember_decision_tooltip"))
-    remember_checkbox.setStyleSheet("""
-        QCheckBox {
-            color: white;
-        }
-        QCheckBox:hover {
-            color: #2196F3;
-        }
-    """)
+    theme = getattr(parent, 'theme', 'dark').lower()
+    if theme == 'light':
+        remember_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #222;
+            }
+            QCheckBox:hover {
+                color: #1976D2;
+            }
+        """)
+    else:
+        remember_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: white;
+            }
+            QCheckBox:hover {
+                color: #2196F3;
+            }
+        """)
     remember_checkbox.setChecked(True)
     parent.remember_permission = remember_checkbox  # Store reference to main window
     

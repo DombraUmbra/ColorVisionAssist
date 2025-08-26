@@ -5,78 +5,85 @@ Contains group box creation functions for various settings
 
 import os
 from PyQt5.QtWidgets import (QLabel, QPushButton, QVBoxLayout, QGroupBox, 
-                           QComboBox, QCheckBox)
+                           QComboBox, QCheckBox, QHBoxLayout)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
 from .buttons import create_button
 
 def _apply_combo_theme(combo_box, parent):
-    """Apply theme-aware styling to combo box"""
+    """Apply a unified, theme-aware styling to a QComboBox using external SVG files."""
     theme = getattr(parent, 'theme', 'dark') if parent else 'dark'
     
+    # Define paths for icons, ensuring they are correct
+    # Go up two levels to reach project root where 'icons' folder resides
+    base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    dark_icon_path = os.path.join(base_path, 'icons', 'dropdown_arrow_dark.svg').replace('\\', '/')
+    light_icon_path = os.path.join(base_path, 'icons', 'dropdown_arrow_light.svg').replace('\\', '/')
+    
+    icon_path = light_icon_path if theme == 'dark' else dark_icon_path
+
+    common_style = f"""
+        QComboBox {{
+            padding: 5px 28px 5px 8px; /* Right padding to not overlap icon */
+            font-size: 10pt;
+            border-radius: 4px;
+        }}
+        QComboBox:hover {{
+        }}
+        QComboBox::drop-down {{
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 25px;
+            border-left-style: solid;
+            border-left-width: 1px;
+            border-top-right-radius: 3px;
+            border-bottom-right-radius: 3px;
+            background-color: transparent;
+        }}
+        QComboBox::down-arrow {{
+            image: url({icon_path});
+            width: 10px;
+            height: 6px;
+        }}
+    """
+
     if theme == 'light':
-        combo_box.setStyleSheet("""
-            QComboBox {
-                background-color: #FFFFFF;
-                color: #222;
-                padding: 6px 8px;
-                border-radius: 3px;
-                font-size: 9pt;
-                min-height: 22px;
-                border: 1px solid #CCC;
-            }
-            QComboBox:hover {
-                background-color: #F5F5F5;
+        combo_box.setStyleSheet(f"""
+            {common_style}
+            QComboBox {{
+                border: 1px solid #CCCCCC;
+                background-color: white;
+                color: #333;
+            }}
+            QComboBox:hover {{
                 border: 1px solid #2196F3;
-            }
-            QComboBox::drop-down {
-                width: 0px;
-                border: none;
-                background: transparent;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border: none;
-                background: transparent;
-                width: 0px;
-                height: 0px;
-            }
+            }}
+            QComboBox::drop-down {{
+                border-left-color: #CCCCCC;
+            }}
         """)
-    else:
-        combo_box.setStyleSheet("""
-            QComboBox {
-                background-color: #555;
-                color: white;
-                padding: 6px 8px;
-                border-radius: 3px;
-                font-size: 9pt;
-                min-height: 22px;
-                border: 1px solid #666;
-            }
-            QComboBox:hover {
-                background-color: #666;
-                border: 1px solid #2196F3;
-            }
-            QComboBox::drop-down {
-                width: 0px;
-                border: none;
-                background: transparent;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border: none;
-                background: transparent;
-                width: 0px;
-                height: 0px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #555;
-                color: white;
-                selection-background-color: #2196F3;
-                border: 1px solid #666;
+    else:  # dark theme
+        combo_box.setStyleSheet(f"""
+            {common_style}
+            QComboBox {{
+                border: 1px solid #555;
+                background-color: #2b2b2b;
+                color: #EEE;
+            }}
+            QComboBox:hover {{
+                border: 1px solid #64B5F6;
+            }}
+            QComboBox::drop-down {{
+                border-left-color: #555;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #2b2b2b;
+                color: #EEE;
+                selection-background-color: #64B5F6;
+                border: 1px solid #555;
                 outline: none;
-            }
+            }}
         """)
 
 def update_combo_themes(parent):
@@ -201,27 +208,52 @@ def create_camera_settings_group(parent):
     
     # Camera permission reset button
     permission_reset_button = QPushButton(tr.get_text("reset_camera_permission"))
-    permission_reset_button.setStyleSheet("""
-        QPushButton {
-            background-color: #555;
-            color: white;
-            padding: 8px 6px;
-            border-radius: 5px;
-            text-align: center;
-            font-size: 9pt;
-            min-height: 25px;
-        }
-        QPushButton:hover {
-            background-color: #777;
-            border: 1px solid #999;
-        }
-        QPushButton:pressed {
-            background-color: #444;
-        }
-    """)
+    
+    # Apply theme-aware button styling to match profile selector
+    theme = getattr(parent, 'theme', 'dark')
+    if theme == 'light':
+        permission_reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #F8F9FA;
+                color: #495057;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+                padding: 8px 12px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #E9ECEF;
+                color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #DEE2E6;
+            }
+        """)
+    else:
+        permission_reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3A3A3A;
+                color: #CCC;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 10pt;
+                padding: 8px 12px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #4A4A4A;
+                color: #64B5F6;
+            }
+            QPushButton:pressed {
+                background-color: #5A5A5A;
+            }
+        """)
     
     # Add icon to button - update icon path
-    reset_icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'icons', 'reset_icon.png')
+    reset_icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'icons', 'reset_icon.png').replace('\\', '/')
     if os.path.exists(reset_icon_path):
         permission_reset_button.setIcon(QIcon(reset_icon_path))
     
@@ -285,6 +317,7 @@ def create_language_group(parent):
     
     language_layout.addWidget(theme_label)
     language_layout.addWidget(parent.theme_combo)
+    
     language_group.setLayout(language_layout)
     
     return language_group
