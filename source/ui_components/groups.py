@@ -5,11 +5,43 @@ Contains group box creation functions for various settings
 
 import os
 from PyQt5.QtWidgets import (QLabel, QPushButton, QVBoxLayout, QGroupBox, 
-                           QComboBox, QCheckBox, QHBoxLayout)
+                           QComboBox, QCheckBox, QHBoxLayout, QListView)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
 from .buttons import create_button
+
+class HiddenCurrentCombo(QComboBox):
+    """QComboBox that hides the currently selected item from the popup list.
+    This improves UX by not showing the already-selected option in the dropdown.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Ensure we have a view instance to manipulate rows
+        self.setView(QListView())
+
+    def showPopup(self):
+        try:
+            # Hide the currently selected row in the popup view
+            current = self.currentIndex()
+            if current >= 0 and self.view() is not None:
+                # First unhide all rows in case of previous state
+                for i in range(self.count()):
+                    self.view().setRowHidden(i, False)
+                self.view().setRowHidden(current, True)
+        except Exception:
+            pass
+        super().showPopup()
+
+    def hidePopup(self):
+        try:
+            # Restore all rows visibility when popup closes
+            if self.view() is not None:
+                for i in range(self.count()):
+                    self.view().setRowHidden(i, False)
+        except Exception:
+            pass
+        super().hidePopup()
 
 def _apply_combo_theme(combo_box, parent):
     """Apply a unified, theme-aware styling to a QComboBox using external SVG files."""
@@ -102,7 +134,7 @@ def create_color_blindness_type_group(parent):
     color_blindness_layout.setSpacing(10)
     
     # Color blindness type selection
-    parent.color_blindness_combo = QComboBox()
+    parent.color_blindness_combo = HiddenCurrentCombo()
     parent.color_blindness_combo.addItem(tr.get_text("red_green_colorblind"), "red_green")
     parent.color_blindness_combo.addItem(tr.get_text("blue_yellow_colorblind"), "blue_yellow")
     parent.color_blindness_combo.addItem(tr.get_text("protanopia"), "protanopia")
@@ -276,7 +308,7 @@ def create_language_group(parent):
     language_layout.addWidget(language_label)
     
     # Language selection
-    parent.language_combo = QComboBox()
+    parent.language_combo = HiddenCurrentCombo()
     for code, name in tr.LANGUAGES.items():
         parent.language_combo.addItem(name, code)
     
@@ -298,7 +330,7 @@ def create_language_group(parent):
     # Theme label with blue color
     theme_label = QLabel(tr.get_text("theme"))
     theme_label.setStyleSheet("color: #2196F3; font-weight: bold; font-size: 9pt;")
-    parent.theme_combo = QComboBox()
+    parent.theme_combo = HiddenCurrentCombo()
     parent.theme_combo.addItem(tr.get_text("dark"), "dark")
     parent.theme_combo.addItem(tr.get_text("light"), "light")
     parent.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
@@ -340,6 +372,25 @@ def create_about_group(parent):
         }
     """)
     about_layout.addWidget(parent.about_label)
+
+    # Contributors list
+    contributors_title = QLabel(tr.get_text("contributors"))
+    contributors_title.setAlignment(Qt.AlignCenter)
+    contributors_title.setStyleSheet("color: #2196F3; font-weight: bold; margin-top: 6px;")
+    about_layout.addWidget(contributors_title)
+
+    contributors = [
+        "Ammar Yasir Bayır",
+        "İrem Duman",
+        "İpek Deniz Özcan",
+        "Hayat Pınar Polat",
+        "Efraim Bayır",
+    ]
+    contributors_label = QLabel("\n".join(contributors))
+    contributors_label.setAlignment(Qt.AlignCenter)
+    contributors_label.setWordWrap(True)
+    contributors_label.setStyleSheet("QLabel { font-size: 9pt; color: #888; }")
+    about_layout.addWidget(contributors_label)
     about_group.setLayout(about_layout)
     
     return about_group

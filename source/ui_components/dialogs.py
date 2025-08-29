@@ -5,7 +5,7 @@ Contains advanced settings dialog and other dialog components
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, 
                            QWidget, QLabel, QCheckBox, QPushButton, QSlider, QGroupBox)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from ..translations import translator as tr
 
 class AdvancedSettingsDialog(QDialog):
@@ -14,6 +14,7 @@ class AdvancedSettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        self._canceled = False  # Track if user explicitly canceled
         self.setWindowTitle(tr.get_text("advanced_settings"))
         self.setModal(True)
         
@@ -44,6 +45,47 @@ class AdvancedSettingsDialog(QDialog):
         self.yellow_checkbox = None
         
         self.setup()
+        # Capture initial state after UI is built
+        self._capture_initial_state()
+
+    def _capture_initial_state(self):
+        """Snapshot initial values to detect unsaved changes on close."""
+        self._initial_state = self._get_current_state()
+
+    def _get_current_state(self) -> dict:
+        """Return current control values as a comparable dict."""
+        state = {}
+        try:
+            if hasattr(self, 'red_checkbox') and self.red_checkbox is not None:
+                state['red'] = bool(self.red_checkbox.isChecked())
+            if hasattr(self, 'green_checkbox') and self.green_checkbox is not None:
+                state['green'] = bool(self.green_checkbox.isChecked())
+            if hasattr(self, 'blue_checkbox') and self.blue_checkbox is not None:
+                state['blue'] = bool(self.blue_checkbox.isChecked())
+            if hasattr(self, 'yellow_checkbox') and self.yellow_checkbox is not None:
+                state['yellow'] = bool(self.yellow_checkbox.isChecked())
+            if hasattr(self, 'sensitivity_slider') and self.sensitivity_slider is not None:
+                state['sensitivity'] = int(self.sensitivity_slider.value())
+            if hasattr(self, 'skin_tone_filtering') and self.skin_tone_filtering is not None:
+                state['skin_tone_filtering'] = bool(self.skin_tone_filtering.isChecked())
+            if hasattr(self, 'stability_enhancement') and self.stability_enhancement is not None:
+                state['stability_enhancement'] = bool(self.stability_enhancement.isChecked())
+            if hasattr(self, 'debug_mode') and self.debug_mode is not None:
+                state['debug_mode'] = bool(self.debug_mode.isChecked())
+        except Exception:
+            # In case of any unexpected widget errors, return what we have
+            pass
+        return state
+
+    def _has_unsaved_changes(self) -> bool:
+        """Compare current state to initial snapshot."""
+        try:
+            current = self._get_current_state()
+            initial = getattr(self, '_initial_state', {})
+            return current != initial
+        except Exception:
+            # Be conservative: assume changes to avoid silent data loss
+            return True
 
     def _get_theme(self) -> str:
         """Return current theme ('light' or 'dark') inherited from parent if available."""
@@ -55,48 +97,49 @@ class AdvancedSettingsDialog(QDialog):
         content_layout = QVBoxLayout(self)
         content_layout.setSpacing(12)
         content_layout.setContentsMargins(20, 20, 20, 20)
-        
+
         # Create tab widget - Compatible with main theme
         tab_widget = QTabWidget()
         if self._get_theme() == 'light':
-            tab_widget.setStyleSheet("""
+            tab_widget.setStyleSheet(
+                """
                 QTabWidget::pane { border: 2px solid #DDD; border-radius: 5px; background-color: #FFFFFF; padding: 10px; margin-top: 5px; }
                 QTabBar::tab { background-color: #EDEFF1; color: #222; padding: 12px 14px; margin: 1px; border-radius: 3px; font-size: 9pt; min-width: 70px; max-width: 120px; border: 1px solid #D0D4D9; }
                 QTabBar::tab:selected { background-color: #1976D2; color: white; font-weight: bold; border: 1px solid #1976D2; }
                 QTabBar::tab:hover { background-color: #F5F6F7; }
-            """)
+                """
+            )
         else:
-            tab_widget.setStyleSheet("""
+            tab_widget.setStyleSheet(
+                """
                 QTabWidget::pane { border: 2px solid #555; border-radius: 5px; background-color: #444; padding: 10px; margin-top: 5px; }
                 QTabBar::tab { background-color: #555; color: #EEE; padding: 12px 14px; margin: 1px; border-radius: 3px; font-size: 9pt; min-width: 70px; max-width: 120px; }
                 QTabBar::tab:selected { background-color: #2196F3; color: white; font-weight: bold; }
                 QTabBar::tab:hover { background-color: #666; }
-            """)
-        
-        # Color selection tab
+                """
+            )
+
+        # Tabs
         color_tab = self.create_color_tab()
         tab_widget.addTab(color_tab, tr.get_text("color_selection_short"))
-        
-        # Detection parameters tab
+
         parameters_tab = self.create_parameters_tab()
         tab_widget.addTab(parameters_tab, tr.get_text("parameters_short"))
-        
-        # Filtering tab
+
         filtering_tab = self.create_filtering_tab()
         tab_widget.addTab(filtering_tab, tr.get_text("filtering_short"))
-        
+
         content_layout.addWidget(tab_widget)
-        
-        # Buttons - Main application button style
+
+        # Buttons
         button_layout = self.create_button_layout()
         content_layout.addLayout(button_layout)
-        
-        # Apply main theme - Special style for dialog
+
+        # Apply main theme
         theme = getattr(self.parent, 'theme', 'dark') if self.parent else 'dark'
         self.apply_dialog_theme(theme)
-        
+
         # Apply title bar theme with delay
-        from PyQt5.QtCore import QTimer
         QTimer.singleShot(100, lambda: self._apply_dialog_title_bar(theme))
         
     def apply_dialog_theme(self, theme: str = 'dark'):
@@ -200,7 +243,7 @@ class AdvancedSettingsDialog(QDialog):
         
         # Main application checkbox style
         if self._get_theme() == 'light':
-            checkbox_stil = """
+            checkbox_style = """
                 QCheckBox { color: #222; font-size: 10pt; spacing: 10px; padding: 8px; background-color: #F5F6F7; border-radius: 4px; margin: 2px 0; }
                 QCheckBox:hover { color: #1976D2; background-color: #ECEFF1; }
                 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 3px; border: 2px solid #BBB; background-color: #FFF; }
@@ -208,7 +251,7 @@ class AdvancedSettingsDialog(QDialog):
                 QCheckBox::indicator:hover { border: 2px solid #64B5F6; }
             """
         else:
-            checkbox_stil = """
+            checkbox_style = """
                 QCheckBox { color: #EEE; font-size: 10pt; spacing: 10px; padding: 8px; background-color: #3A3A3A; border-radius: 4px; margin: 2px 0; }
                 QCheckBox:hover { color: #2196F3; background-color: #454545; }
                 QCheckBox::indicator { width: 16px; height: 16px; border-radius: 3px; border: 2px solid #666; background-color: #333; }
@@ -217,7 +260,7 @@ class AdvancedSettingsDialog(QDialog):
             """
         
         for checkbox in [self.red_checkbox, self.green_checkbox, self.blue_checkbox, self.yellow_checkbox]:
-            checkbox.setStyleSheet(checkbox_stil)
+            checkbox.setStyleSheet(checkbox_style)
         
         # Tooltips
         self.red_checkbox.setToolTip(tr.get_text("red_checkbox_tooltip"))
@@ -466,6 +509,8 @@ class AdvancedSettingsDialog(QDialog):
         
         filtering_layout.addStretch()
         return filtering_tab
+
+    # Real-time autosave intentionally removed: changes apply only when Save is pressed
     
     def create_button_layout(self):
         """Create button layout - Main application button style"""
@@ -486,7 +531,8 @@ class AdvancedSettingsDialog(QDialog):
                 QPushButton:hover { background-color: #777; border: 1px solid #999; }
                 QPushButton:pressed { background-color: #444; }
             """)
-        cancel_button.clicked.connect(self.reject)
+        # Mark as canceled so closeEvent won't auto-save
+        cancel_button.clicked.connect(self._on_cancel_clicked)
         button_layout.addWidget(cancel_button)
         
         # Save button - Main application style (old "OK" button)
@@ -536,18 +582,48 @@ class AdvancedSettingsDialog(QDialog):
         self.parent.green_checkbox.setChecked(self.green_checkbox.isChecked())
         self.parent.blue_checkbox.setChecked(self.blue_checkbox.isChecked())
         self.parent.yellow_checkbox.setChecked(self.yellow_checkbox.isChecked())
+        # Persist to QSettings as well for consistency
+        try:
+            if hasattr(self.parent, 'settings'):
+                self.parent.settings.setValue("detect_red", self.parent.red_checkbox.isChecked())
+                self.parent.settings.setValue("detect_green", self.parent.green_checkbox.isChecked())
+                self.parent.settings.setValue("detect_blue", self.parent.blue_checkbox.isChecked())
+                self.parent.settings.setValue("detect_yellow", self.parent.yellow_checkbox.isChecked())
+        except Exception:
+            pass
         
         # Update sensitivity value
         if hasattr(self, 'sensitivity_slider'):
             self.parent.sensitivity_slider.setValue(self.sensitivity_slider.value())
+            # Persist to QSettings so autosave serializes correct value (0.1-1.0)
+            try:
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("detection_sensitivity", float(self.sensitivity_slider.value()) / 10.0)
+            except Exception:
+                pass
         
         # Store filtering settings in main application
         if hasattr(self, 'skin_tone_filtering'):
             self.parent.skin_tone_filtering_active = self.skin_tone_filtering.isChecked()
+            try:
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("skin_tone_filtering_active", self.parent.skin_tone_filtering_active)
+            except Exception:
+                pass
         if hasattr(self, 'stability_enhancement'):
             self.parent.stability_enhancement_active = self.stability_enhancement.isChecked()
+            try:
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("stability_enhancement_active", self.parent.stability_enhancement_active)
+            except Exception:
+                pass
         if hasattr(self, 'debug_mode'):
             self.parent.debug_mode_active = self.debug_mode.isChecked()
+            try:
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("debug_mode_active", self.parent.debug_mode_active)
+            except Exception:
+                pass
         
         # Set color blindness combo to "Custom Colors" - BLOCKING SIGNALS
         self.parent.color_blindness_combo.blockSignals(True)  # Temporarily block signals
@@ -567,3 +643,112 @@ class AdvancedSettingsDialog(QDialog):
     def apply_settings_and_close(self):
         """Old function - for backward compatibility"""
         self.save_settings_and_close()
+
+    def _on_cancel_clicked(self):
+        """Handle explicit cancel click: do not save and mark canceled."""
+        self._canceled = True
+        self.reject()
+
+    def closeEvent(self, event):
+        """On window close (X), ask for confirmation and discard changes if confirmed."""
+        from PyQt5.QtWidgets import QMessageBox
+        # If not already accepted or explicitly canceled, confirm discard
+        if self.result() == 0 and not self._canceled:
+            # If nothing has changed, just close without warning
+            try:
+                if not self._has_unsaved_changes():
+                    event.accept()
+                    return
+            except Exception:
+                # On safe-side, fall through to confirmation
+                pass
+            box = QMessageBox(self)
+            # Prefer non-native look for consistent styling (ignore if unsupported)
+            try:
+                box.setOption(QMessageBox.DontUseNativeDialog, True)
+            except Exception:
+                pass
+            is_light = self._get_theme() == 'light'
+            # Theme-aware basic styling
+            try:
+                if is_light:
+                    box.setStyleSheet("""
+                        QDialog, QMessageBox { background-color: #F5F5F7; color: #222; border: 1px solid #D0D4D9; border-radius: 8px; }
+                        QLabel { color: #222; }
+                        QPushButton { background-color: #F8F9FA; color: #495057; border: 1px solid #D0D4D9; border-radius: 6px; font-weight: 600; padding: 6px 12px; min-width: 84px; }
+                        QPushButton:hover { background-color: #E9ECEF; }
+                    """)
+                else:
+                    box.setStyleSheet("""
+                        QDialog, QMessageBox { background-color: #2b2b2b; color: #EEE; border: 1px solid #3D3D3D; border-radius: 8px; }
+                        QLabel { color: #EEE; }
+                        QPushButton { background-color: #3A3A3A; color: #DDD; border: 1px solid #4A4A4A; border-radius: 6px; font-weight: 600; padding: 6px 12px; min-width: 84px; }
+                        QPushButton:hover { background-color: #4A4A4A; }
+                    """)
+            except Exception:
+                # Styling failure shouldn't close the dialog
+                pass
+            box.setIcon(QMessageBox.Warning)
+            box.setWindowTitle(tr.get_text("warning"))
+            box.setText(tr.get_text("unsaved_changes_discard_confirm"))
+            # Use explicit Yes/No order: No left, Yes right
+            box.setStandardButtons(QMessageBox.NoButton)
+            no_btn = box.addButton(tr.get_text("no"), QMessageBox.ActionRole)
+            yes_btn = box.addButton(tr.get_text("yes"), QMessageBox.ActionRole)
+            # Color buttons (No=red, Yes=green) for accessibility & consistency
+            try:
+                if is_light:
+                    no_btn.setStyleSheet("""
+                        QPushButton { background-color: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2; }
+                        QPushButton:hover { background-color: #FFCDD2; }
+                    """)
+                    yes_btn.setStyleSheet("""
+                        QPushButton { background-color: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
+                        QPushButton:hover { background-color: #C8E6C9; }
+                    """)
+                else:
+                    no_btn.setStyleSheet("""
+                        QPushButton { background-color: #512F2F; color: #FF6B6B; border: 1px solid #6A3A3A; }
+                        QPushButton:hover { background-color: #6A3A3A; }
+                    """)
+                    yes_btn.setStyleSheet("""
+                        QPushButton { background-color: #294030; color: #7DDE86; border: 1px solid #355A3E; }
+                        QPushButton:hover { background-color: #355A3E; }
+                    """)
+            except Exception:
+                pass
+            try:
+                box.setEscapeButton(no_btn)
+                box.setDefaultButton(yes_btn)
+            except Exception:
+                pass
+            # Apply dark title bar when in dark theme (Windows)
+            if not is_light:
+                try:
+                    import ctypes
+                    hwnd = int(box.winId())
+                    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        hwnd,
+                        DWMWA_USE_IMMERSIVE_DARK_MODE,
+                        ctypes.byref(ctypes.c_int(1)),
+                        ctypes.sizeof(ctypes.c_int)
+                    )
+                except Exception:
+                    pass
+            # Execute and decide
+            try:
+                box.exec_()
+                if box.clickedButton() is yes_btn:
+                    # Discard changes
+                    self._canceled = True
+                    event.accept()
+                else:
+                    # Keep dialog open
+                    event.ignore()
+            except Exception:
+                # If anything goes wrong, do NOT close silently
+                event.ignore()
+            return
+        # Default behavior if already accepted/canceled
+        event.accept()

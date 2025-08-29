@@ -152,8 +152,13 @@ class CameraHandlers:
                 # Permission already granted, start camera directly
                 self.camera_startup_process()
             elif self.camera_permission == "denied":
-                # Permission already denied
-                self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
+                # Permission was denied previously; show permission prompt again
+                show_camera_permission_interface(
+                    self,
+                    self.camera_feed_layout,
+                    self.camera_permission_granted,
+                    self.camera_permission_denied
+                )
             else:
                 # Ask for permission
                 show_camera_permission_interface(

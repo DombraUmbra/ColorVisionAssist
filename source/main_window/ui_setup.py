@@ -275,14 +275,13 @@ class UISetup:
         self.blue_checkbox = QCheckBox(tr.get_text("detect_blue"))
         self.yellow_checkbox = QCheckBox(tr.get_text("detect_yellow"))
         
-        # Default selected colors (Red-Green color blindness)
-        self.red_checkbox.setChecked(True)
-        self.green_checkbox.setChecked(True)
+        # NOTE: Default values will be set from profile in window.py after UI setup
+        # Don't set defaults here to avoid overwriting profile values
         
-        # Filtering settings
-        self.skin_tone_filtering_active = True  # Skin tone filtering default active
-        self.stability_enhancement_active = True  # Stability enhancement default active
-        self.debug_mode_active = False  # Debug mode default off
+        # Filtering settings - will be set from profile
+        self.skin_tone_filtering_active = True  # Temporary default, will be overridden
+        self.stability_enhancement_active = True  # Temporary default, will be overridden  
+        self.debug_mode_active = False  # Temporary default, will be overridden
         
         # Default values for sensitivity and contrast (to be used in advanced settings)
         self.sensitivity_value = 5
@@ -291,7 +290,7 @@ class UISetup:
         # Hidden slider for advanced settings (just to hold value)
         self.sensitivity_slider = QSlider(Qt.Horizontal)
         self.sensitivity_slider.setRange(1, 10)
-        self.sensitivity_slider.setValue(5)
+        self.sensitivity_slider.setValue(5)  # Will be overridden from profile
         self.sensitivity_slider.setVisible(False)  # Invisible
 
     def update_ui_language(self):
@@ -379,3 +378,7 @@ class UISetup:
         # Re-apply theme-specific component styles after text changes
         if hasattr(self, 'apply_theme_to_components'):
             self.apply_theme_to_components()
+
+        # Update language-dependent texts inside ProfileSelector (group title + tooltips)
+        if hasattr(self, 'profile_selector') and hasattr(self.profile_selector, 'update_ui_language'):
+            self.profile_selector.update_ui_language()

@@ -38,12 +38,13 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         self.settings = QSettings("ColorVisionAid", "CVA")
         
         # Load current profile or create default
-        current_profile_name = self.settings.value("current_profile", "Default Profile")
+        from ..translations import translator as tr
+        current_profile_name = self.settings.value("current_profile", tr.get_text("default_profile"))
         self.current_profile = self.profile_manager.load_profile(current_profile_name)
         
         if not self.current_profile:
             # Create default profile if not found
-            self.current_profile = self.profile_manager.create_profile("Default Profile")
+            self.current_profile = self.profile_manager.create_profile(tr.get_text("default_profile"))
             self.profile_manager.save_profile(self.current_profile)
         
         # Apply profile settings to QSettings
@@ -63,6 +64,39 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
 
         # UI setup (from UISetup mixin)
         self.setup_ui()
+        
+        # Apply current profile after UI is completely initialized
+        # This ensures profile values override any default UI settings
+        from PyQt5.QtCore import QTimer
+        def apply_profile_after_ui_complete():
+            if self.current_profile:
+                try:
+                    # Apply profile values to checkboxes
+                    if hasattr(self, 'red_checkbox'):
+                        self.red_checkbox.setChecked(getattr(self.current_profile, 'detect_red', True))
+                    if hasattr(self, 'green_checkbox'):
+                        self.green_checkbox.setChecked(getattr(self.current_profile, 'detect_green', True))
+                    if hasattr(self, 'blue_checkbox'):
+                        self.blue_checkbox.setChecked(getattr(self.current_profile, 'detect_blue', False))
+                    if hasattr(self, 'yellow_checkbox'):
+                        self.yellow_checkbox.setChecked(getattr(self.current_profile, 'detect_yellow', False))
+                    
+                    # Apply sensitivity slider value
+                    if hasattr(self, 'sensitivity_slider'):
+                        sens = float(getattr(self.current_profile, 'detection_sensitivity', 0.5))
+                        slider_val = max(1, min(10, int(round(sens * 10))))
+                        self.sensitivity_slider.setValue(slider_val)
+                    
+                    # Apply advanced settings flags
+                    self.skin_tone_filtering_active = bool(getattr(self.current_profile, 'skin_tone_filtering_active', True))
+                    self.stability_enhancement_active = bool(getattr(self.current_profile, 'stability_enhancement_active', True))
+                    self.debug_mode_active = bool(getattr(self.current_profile, 'debug_mode_active', False))
+                    
+                except Exception as e:
+                    print(f"Warning: Could not apply profile values during UI setup: {e}")
+        
+        # Apply profile after a short delay to ensure all UI components are ready
+        QTimer.singleShot(100, apply_profile_after_ui_complete)
         
         # Set application icon
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "icons", "app_icon.png")
@@ -110,6 +144,52 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 print(f"Warning: Could not apply window properties from profile: {e}")
                 # Use default window size if profile properties are invalid
                 self.resize(1000, 600)
+
+    def _apply_advanced_settings_from_profile(self):
+        """Apply persisted advanced settings (profile/QSettings) to runtime widgets."""
+        try:
+            # Sensitivity: profile stores 0.1–1.0, hidden slider expects 1–10
+            if hasattr(self, 'sensitivity_slider') and self.current_profile:
+                sens = getattr(self.current_profile, 'detection_sensitivity', None)
+                if sens is None:
+                    # Fallback to QSettings if profile missing the field
+                    sens = float(self.settings.value('detection_sensitivity', 0.5))
+                # Clamp and convert
+                slider_val = max(1, min(10, int(round(float(sens) * 10))))
+                self.sensitivity_slider.setValue(slider_val)
+
+            # Optional booleans (if later persisted), keep existing defaults otherwise
+            if hasattr(self, 'skin_tone_filtering_active'):
+                val = self.settings.value('skin_tone_filtering_active', self.skin_tone_filtering_active, type=bool)
+                self.skin_tone_filtering_active = val
+            if hasattr(self, 'stability_enhancement_active'):
+                val = self.settings.value('stability_enhancement_active', self.stability_enhancement_active, type=bool)
+                self.stability_enhancement_active = val
+            if hasattr(self, 'debug_mode_active'):
+                val = self.settings.value('debug_mode_active', self.debug_mode_active, type=bool)
+                self.debug_mode_active = val
+
+            # Manual color selections for analysis (checkboxes)
+            for key, attr in (
+                ('detect_red', 'red_checkbox'),
+                ('detect_green', 'green_checkbox'),
+                ('detect_blue', 'blue_checkbox'),
+                ('detect_yellow', 'yellow_checkbox'),
+            ):
+                if hasattr(self, attr):
+                    checkbox = getattr(self, attr)
+                    # Determine default from current checkbox state, fallback to profile
+                    default_val = checkbox.isChecked()
+                    if self.current_profile is not None:
+                        default_val = bool(getattr(self.current_profile, key, default_val))
+                    val = self.settings.value(key, default_val, type=bool)
+                    try:
+                        checkbox.blockSignals(True)
+                        checkbox.setChecked(bool(val))
+                    finally:
+                        checkbox.blockSignals(False)
+        except Exception as e:
+            print(f"Warning: Could not apply advanced settings from profile: {e}")
         
     def _apply_window_theme(self):
         """Apply theme-appropriate window styling"""
@@ -351,17 +431,54 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         self.current_profile.is_maximized = self.isMaximized()
         
         # Save advanced settings if available
-        if hasattr(self, 'detection_sensitivity'):
-            self.current_profile.detection_sensitivity = getattr(self, 'detection_sensitivity', 0.5)
+        # Detection sensitivity from hidden slider (1-10) -> 0.1-1.0
+        try:
+            if hasattr(self, 'sensitivity_slider') and self.sensitivity_slider is not None:
+                self.current_profile.detection_sensitivity = float(self.sensitivity_slider.value()) / 10.0
+                # Keep QSettings in sync for restart consistency
+                if hasattr(self, 'settings'):
+                    self.settings.setValue('detection_sensitivity', self.current_profile.detection_sensitivity)
+        except Exception:
+            pass
+
         if hasattr(self, 'color_enhancement'):
             self.current_profile.color_enhancement = getattr(self, 'color_enhancement', True)
         if hasattr(self, 'voice_feedback'):
             self.current_profile.voice_feedback = getattr(self, 'voice_feedback', False)
         if hasattr(self, 'auto_detection'):
             self.current_profile.auto_detection = getattr(self, 'auto_detection', True)
+
+        # Manual color selections
+        try:
+            if hasattr(self, 'red_checkbox'):
+                self.current_profile.detect_red = bool(self.red_checkbox.isChecked())
+            if hasattr(self, 'green_checkbox'):
+                self.current_profile.detect_green = bool(self.green_checkbox.isChecked())
+            if hasattr(self, 'blue_checkbox'):
+                self.current_profile.detect_blue = bool(self.blue_checkbox.isChecked())
+            if hasattr(self, 'yellow_checkbox'):
+                self.current_profile.detect_yellow = bool(self.yellow_checkbox.isChecked())
+        except Exception:
+            pass
+
+        # Additional advanced flags
+        try:
+            if hasattr(self, 'skin_tone_filtering_active'):
+                self.current_profile.skin_tone_filtering_active = bool(self.skin_tone_filtering_active)
+            if hasattr(self, 'stability_enhancement_active'):
+                self.current_profile.stability_enhancement_active = bool(self.stability_enhancement_active)
+            if hasattr(self, 'debug_mode_active'):
+                self.current_profile.debug_mode_active = bool(self.debug_mode_active)
+        except Exception:
+            pass
         
         # Save to file
         self.profile_manager.save_profile(self.current_profile)
+        # Also reflect into QSettings for immediate persistence
+        try:
+            self.profile_manager.apply_profile_to_settings(self.current_profile)
+        except Exception:
+            pass
     
     def retranslate_ui(self):
         """Update UI texts when language changes"""

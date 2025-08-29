@@ -24,6 +24,13 @@ class UserProfile:
     is_maximized: bool = False
     camera_permission: str = "ask"
     # Advanced settings
+    detect_red: bool = True
+    detect_green: bool = True
+    detect_blue: bool = False
+    detect_yellow: bool = False
+    skin_tone_filtering_active: bool = True
+    stability_enhancement_active: bool = True
+    debug_mode_active: bool = False
     detection_sensitivity: float = 0.5
     color_enhancement: bool = True
     voice_feedback: bool = False
@@ -77,8 +84,9 @@ class ProfileManager:
         """Initialize default profile if no profiles exist"""
         if not self.get_all_profiles():
             from datetime import datetime
+            from .translations import translator as tr
             default_profile = UserProfile(
-                name="Default Profile",
+                name=tr.get_text("default_profile"),
                 created_date=datetime.now().isoformat(),
                 last_used_date=datetime.now().isoformat()
             )
@@ -102,6 +110,13 @@ class ProfileManager:
                 window_y=base_profile.window_y,
                 is_maximized=base_profile.is_maximized,
                 camera_permission=base_profile.camera_permission,
+                detect_red=base_profile.detect_red,
+                detect_green=base_profile.detect_green,
+                detect_blue=base_profile.detect_blue,
+                detect_yellow=base_profile.detect_yellow,
+                skin_tone_filtering_active=base_profile.skin_tone_filtering_active,
+                stability_enhancement_active=base_profile.stability_enhancement_active,
+                debug_mode_active=base_profile.debug_mode_active,
                 detection_sensitivity=base_profile.detection_sensitivity,
                 color_enhancement=base_profile.color_enhancement,
                 voice_feedback=base_profile.voice_feedback,
@@ -242,6 +257,7 @@ class ProfileManager:
     
     def apply_profile_to_settings(self, profile: UserProfile):
         """Apply profile settings to QSettings"""
+        # Core window and general settings
         self.settings.setValue("language", profile.language)
         self.settings.setValue("theme", profile.theme)
         self.settings.setValue("camera_permission", profile.camera_permission)
@@ -251,11 +267,22 @@ class ProfileManager:
         self.settings.setValue("window_x", profile.window_x)
         self.settings.setValue("window_y", profile.window_y)
         self.settings.setValue("is_maximized", profile.is_maximized)
+
+        # Advanced: color selections and flags
+        self.settings.setValue("detect_red", profile.detect_red)
+        self.settings.setValue("detect_green", profile.detect_green)
+        self.settings.setValue("detect_blue", profile.detect_blue)
+        self.settings.setValue("detect_yellow", profile.detect_yellow)
+        self.settings.setValue("skin_tone_filtering_active", profile.skin_tone_filtering_active)
+        self.settings.setValue("stability_enhancement_active", profile.stability_enhancement_active)
+        self.settings.setValue("debug_mode_active", profile.debug_mode_active)
         self.settings.setValue("detection_sensitivity", profile.detection_sensitivity)
         self.settings.setValue("color_enhancement", profile.color_enhancement)
         self.settings.setValue("voice_feedback", profile.voice_feedback)
         self.settings.setValue("auto_detection", profile.auto_detection)
         self.settings.setValue("filter_strength", profile.filter_strength)
+
+        # Book-keeping
         self.settings.setValue("current_profile", profile.name)
         self.settings.sync()
     
@@ -274,6 +301,13 @@ class ProfileManager:
             window_y=int(self.settings.value("window_y", 100)),
             is_maximized=self.settings.value("is_maximized", False, type=bool),
             camera_permission=self.settings.value("camera_permission", "ask"),
+            detect_red=self.settings.value("detect_red", True, type=bool),
+            detect_green=self.settings.value("detect_green", True, type=bool),
+            detect_blue=self.settings.value("detect_blue", False, type=bool),
+            detect_yellow=self.settings.value("detect_yellow", False, type=bool),
+            skin_tone_filtering_active=self.settings.value("skin_tone_filtering_active", True, type=bool),
+            stability_enhancement_active=self.settings.value("stability_enhancement_active", True, type=bool),
+            debug_mode_active=self.settings.value("debug_mode_active", False, type=bool),
             detection_sensitivity=float(self.settings.value("detection_sensitivity", 0.5)),
             color_enhancement=self.settings.value("color_enhancement", True, type=bool),
             voice_feedback=self.settings.value("voice_feedback", False, type=bool),

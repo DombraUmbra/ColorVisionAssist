@@ -27,9 +27,21 @@ class EventHandlers:
             self.status_bar.showMessage(tr.get_text("screenshot_failed", result))
 
     def open_gallery(self):
-        """Open gallery"""
-        gallery = ScreenshotGallery(self)
-        gallery.exec_()
+        """Open gallery as a non-modal window (single instance)."""
+        # Keep one instance to avoid modality issues blocking child viewers
+        if not hasattr(self, "_gallery_window") or self._gallery_window is None:
+            self._gallery_window = ScreenshotGallery(self)
+            # Ensure it's deleted on close so our reference can be cleared
+            self._gallery_window.setAttribute(Qt.WA_DeleteOnClose, True)
+            try:
+                # Clear reference when destroyed
+                self._gallery_window.destroyed.connect(lambda _=None: setattr(self, "_gallery_window", None))
+            except Exception:
+                pass
+        # Show and bring to front
+        self._gallery_window.show()
+        self._gallery_window.raise_()
+        self._gallery_window.activateWindow()
 
     def load_file(self):
         """File loading and analysis"""
@@ -210,18 +222,100 @@ class EventHandlers:
     def change_language(self, index):
         """Change application language"""
         language_code = self.language_combo.itemData(index)
+        # Capture old language context for name localization
+        old_lang = getattr(tr, 'current_language', 'en')
+        # Keep old language's default profile name to detect and rename after switch
+        old_default_name = tr.get_text("default_profile")
         if tr.set_language(language_code):
             # Update current profile
             if hasattr(self, 'current_profile') and self.current_profile:
                 self.current_profile.language = language_code
                 self.profile_manager.save_profile(self.current_profile)
-            
+
             # Save language setting
             self.settings.setValue("language", language_code)
-            
+
             # Update visible elements language
             self.update_ui_language()
-            
+
+            # If current profile was the default profile in previous language,
+            # rename it to the new language's default name so it stays localized
+            try:
+                if hasattr(self, 'current_profile') and self.current_profile:
+                    new_default_name = tr.get_text("default_profile")
+                    if self.current_profile.name == old_default_name and old_default_name != new_default_name:
+                        if self.profile_manager.rename_profile(old_default_name, new_default_name):
+                            self.current_profile.name = new_default_name
+                            # Persist and refresh UI list
+                            self.settings.setValue("current_profile", new_default_name)
+                            if hasattr(self, 'profile_selector'):
+                                self.profile_selector.load_profiles()
+                                idx = self.profile_selector.profile_combo.findText(new_default_name)
+                                if idx >= 0:
+                                    self.profile_selector.profile_combo.setCurrentIndex(idx)
+                    else:
+                        # Also localize custom names that end with the language-specific "profile" suffix
+                        # e.g., "My Color profile" -> "My Color profil" when switching to Turkish (and vice versa)
+                        new_lang = getattr(tr, 'current_language', 'en')
+                        old_suffix = 'profil' if (old_lang == 'tr') else 'profile'
+                        new_suffix = 'profil' if (new_lang == 'tr') else 'profile'
+                        name_lower = (self.current_profile.name or '').lower()
+                        # Skip if name equals the default names to avoid double processing
+                        if self.current_profile.name not in (old_default_name, tr.get_text("default_profile")):
+                            token = ' ' + old_suffix
+                            if name_lower.endswith(token):
+                                base = self.current_profile.name[:-(len(old_suffix))].rstrip()
+                                candidate = f"{base} {new_suffix}".strip()
+                                if candidate and candidate != self.current_profile.name:
+                                    if self.profile_manager.rename_profile(self.current_profile.name, candidate):
+                                        self.current_profile.name = candidate
+                                        self.settings.setValue("current_profile", candidate)
+                                        if hasattr(self, 'profile_selector'):
+                                            self.profile_selector.load_profiles()
+                                            idx2 = self.profile_selector.profile_combo.findText(candidate)
+                                            if idx2 >= 0:
+                                                self.profile_selector.profile_combo.setCurrentIndex(idx2)
+                # Bulk suffix localization for all profiles
+                try:
+                    import os as _os
+                    new_lang = getattr(tr, 'current_language', 'en')
+                    old_suffix = 'profil' if (old_lang == 'tr') else 'profile'
+                    new_suffix = 'profil' if (new_lang == 'tr') else 'profile'
+                    token = ' ' + old_suffix
+                    profiles = self.profile_manager.get_all_profiles()
+                    used_names = set(profiles)
+                    new_default_name = tr.get_text("default_profile")
+                    for name in list(profiles):
+                        # Skip default names and already converted names
+                        if name in (old_default_name, new_default_name):
+                            continue
+                        # Skip the currently renamed profile if already updated
+                        if hasattr(self, 'current_profile') and self.current_profile and name == self.current_profile.name:
+                            continue
+                        if name.lower().endswith(token):
+                            base = name[:-(len(old_suffix))].rstrip()
+                            candidate = f"{base} {new_suffix}".strip()
+                            final_name = candidate
+                            # Ensure uniqueness by appending (n) if needed
+                            counter = 2
+                            while final_name in used_names:
+                                final_name = f"{candidate} ({counter})"
+                                counter += 1
+                            if final_name != name:
+                                if self.profile_manager.rename_profile(name, final_name):
+                                    used_names.discard(name)
+                                    used_names.add(final_name)
+                                    # Update UI selection if we just renamed the selected text in combo
+                                    if hasattr(self, 'profile_selector'):
+                                        idx_old = self.profile_selector.profile_combo.findText(name)
+                                        if idx_old >= 0:
+                                            self.profile_selector.load_profiles()
+                except Exception:
+                    pass
+            except Exception as _e:
+                # Non-fatal: just skip renaming if anything goes wrong
+                pass
+
             # Show status message
             self.status_bar.showMessage(tr.get_text("language_changed"))
 
@@ -242,7 +336,7 @@ class EventHandlers:
                 self.theme_combo.setCurrentIndex(restore_index)
                 self.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
                 self.theme_combo.blockSignals(False)
-            
+
             # Auto-save profile
             self.auto_save_profile_on_change()
 
@@ -288,11 +382,10 @@ class EventHandlers:
     def on_profile_changed(self, profile_name):
         """Handle profile change from profile selector"""
         self.status_bar.showMessage(tr.get_text("profile_loaded_successfully", profile_name), 2000)
-        
-        # Update window title
-        title = f"ColorVisionAid - {profile_name}"
-        self.setWindowTitle(title)
-        
+        # Update window title using localized app title
+        app_title = tr.get_text("app_title")
+        self.setWindowTitle(f"{app_title} - {profile_name}")
+
         # Update auto-save reference
         if hasattr(self, 'profile_selector'):
             self.profile_selector.auto_save_current_profile()

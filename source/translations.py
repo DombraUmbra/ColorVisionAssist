@@ -139,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Whisper of Colors\nVersion 1.3\n\nRemove the barriers, reveal your color.",
-                "tr": "Renklerin Fısıltısı\nSürüm 1.3\n\nSınırları kaldır, rengini belli et."
+                "en": "Whisper of Colors\nVersion 1.4\n\nRemove the barriers, reveal your color.",
+                "tr": "Renklerin Fısıltısı\nSürüm 1.4\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery
@@ -180,9 +180,9 @@ class Translations:
             },
             
             # Dialog texts
-            "delete_confirmation": {
-                "en": "Delete Confirmation",
-                "tr": "Silme Onayı"
+            "warning": {
+                "en": "Warning",
+                "tr": "Uyarı"
             },
             "delete_confirm_text": {
                 "en": "Are you sure you want to delete the file {}?",
@@ -191,6 +191,10 @@ class Translations:
             "error": {
                 "en": "Error",
                 "tr": "Hata"
+            },
+            "unsaved_changes_discard_confirm": {
+                "en": "Your changes won't be saved. Are you sure you want to close?",
+                "tr": "Değişiklikler kaydedilmeyecek. Kapatmak istediğinize emin misiniz?"
             },
             "delete_failed": {
                 "en": "Failed to delete file: {}",
@@ -485,6 +489,18 @@ class Translations:
                 "en": "OK",
                 "tr": "Tamam"
             },
+            "yes": {
+                "en": "Yes",
+                "tr": "Evet"
+            },
+            "no": {
+                "en": "No",
+                "tr": "Hayır"
+            },
+            "delete": {
+                "en": "Delete",
+                "tr": "Sil"
+            },
             "save": {
                 "en": "Save",
                 "tr": "Kaydet"
@@ -492,6 +508,18 @@ class Translations:
             "cancel": {
                 "en": "Cancel",
                 "tr": "İptal"
+            },
+            "close": {
+                "en": "Close",
+                "tr": "Kapat"
+            },
+            "fullscreen": {
+                "en": "Fullscreen",
+                "tr": "Tam ekran"
+            },
+            "windowed": {
+                "en": "Windowed",
+                "tr": "Pencere"
             },
             
             # Advanced settings descriptions
@@ -548,28 +576,10 @@ class Translations:
                 "tr": "Uzak ve küçük nesneleri algılar. Daha fazla yanlış algılama olabilir ama her şeyi yakalar."
             },
             
-            # Basic UI elements,
-            
             # Basic UI elements
-            "apply": {
-                "en": "Apply",
-                "tr": "Uygula"
-            },
-            "save": {
-                "en": "Save",
-                "tr": "Kaydet"
-            },
-            "cancel": {
-                "en": "Cancel",
-                "tr": "İptal"
-            },
             "success": {
                 "en": "Success",
                 "tr": "Başarılı"
-            },
-            "error": {
-                "en": "Error",
-                "tr": "Hata"
             },
             
             # Simplified profile system
@@ -577,17 +587,25 @@ class Translations:
                 "en": "Save Current Settings",
                 "tr": "Mevcut Ayarları Kaydet"
             },
+            "create_new_profile": {
+                "en": "Create New Profile",
+                "tr": "Yeni Profil Oluştur"
+            },
             "save_settings_description": {
                 "en": "Save your current application settings as a profile for easy access later.",
                 "tr": "Mevcut uygulama ayarlarınızı daha sonra kolay erişim için profil olarak kaydedin."
+            },
+            "default_profile": {
+                "en": "Default Profile",
+                "tr": "Varsayılan Profil"
             },
             "profile_name": {
                 "en": "Profile Name",
                 "tr": "Profil Adı"
             },
             "enter_profile_name": {
-                "en": "Enter profile name...",
-                "tr": "Profil adını girin..."
+                "en": "Enter profile name",
+                "tr": "Profil adını girin"
             },
             "or_replace_existing": {
                 "en": "Or Replace Existing Profile",
@@ -612,10 +630,6 @@ class Translations:
             "load_selected": {
                 "en": "Load Selected",
                 "tr": "Seçileni Yükle"
-            },
-            "delete_selected": {
-                "en": "Delete Selected",
-                "tr": "Seçileni Sil"
             },
             "custom_profile": {
                 "en": "Custom Profile",
@@ -689,6 +703,11 @@ class Translations:
                 "en": "📂 Load Profile",
                 "tr": "📂 Profil Yükle"
             },
+            # Contributors
+            "contributors": {
+                "en": "Contributors",
+                "tr": "Katkıda Bulunanlar"
+            },
             
             # Auto-saving profile selector
             "current_profile": {
@@ -738,6 +757,10 @@ class Translations:
             "failed_to_duplicate_profile": {
                 "en": "Failed to duplicate profile",
                 "tr": "Profil kopyalanamadı"
+            },
+            "copy_suffix": {
+                "en": "Copy",
+                "tr": "Kopya"
             }
         }
     
