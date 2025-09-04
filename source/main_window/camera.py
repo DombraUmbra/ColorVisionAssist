@@ -2,12 +2,14 @@ import os
 import cv2
 import glob
 import numpy as np
+from datetime import datetime
 from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget, QPushButton, QCheckBox, QHBoxLayout
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QPixmap
 
 # Import package's own modules
 from ..translations import translator as tr
+from ..ui_components.buttons import update_button_theme
 
 class CameraManager:
     def __init__(self, parent=None):
@@ -64,7 +66,7 @@ class CameraManager:
     
     def take_screenshot(self):
         """
-        Take and save a screenshot
+        Take and save a screenshot with date format (dd/mm/yyyy)
         
         Returns:
             (successful, filename or error message)
@@ -79,25 +81,97 @@ class CameraManager:
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir)
         
-        # Find all PNG files in the screenshots directory that start with "screenshot_"
-        screenshot_files = glob.glob(os.path.join(screenshot_dir, "screenshot_*.png"))
+        # Migrate old screenshot files to new format if needed
+        self._migrate_old_screenshots(screenshot_dir)
+        
+        # Generate filename with current date and time in dd/mm/yyyy format
+        now = datetime.now()
+        date_str = now.strftime("%d-%m-%Y")  # Using dash for filename compatibility
+        time_str = now.strftime("%H-%M-%S")  # Using dash for filename compatibility
+        
+        # Find next number for today
+        today_files = glob.glob(os.path.join(screenshot_dir, f"screenshot_{date_str}_*.png"))
         next_number = 1
-        if screenshot_files:
-            # Extract numbers from existing files and find the maximum
+        if today_files:
+            # Extract numbers from today's files and find the maximum
             current_numbers = []
-            for file_name in screenshot_files:
+            for file_name in today_files:
                 try:
                     base_file_name = os.path.basename(file_name)
-                    number = int(base_file_name.replace("screenshot_", "").replace(".png", ""))
-                    current_numbers.append(number)
-                except ValueError:
+                    # Extract number from filename like "screenshot_31-12-2024_15-30-45_001.png"
+                    parts = base_file_name.replace(".png", "").split("_")
+                    if len(parts) >= 4:  # screenshot_date_time_number
+                        number = int(parts[-1])
+                        current_numbers.append(number)
+                except (ValueError, IndexError):
                     pass
             if current_numbers:
                 next_number = max(current_numbers) + 1
                 
-        file_name = os.path.join(screenshot_dir, f"screenshot_{next_number}.png")
+        # Create filename: screenshot_dd-mm-yyyy_hh-mm-ss_001.png
+        file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}_{next_number:03d}.png")
         cv2.imwrite(file_name, self.current_frame)
         return True, file_name
+    
+    def _migrate_old_screenshots(self, screenshot_dir):
+        """
+        Migrate old screenshot files (screenshot_1.png, screenshot_2.png, etc.) 
+        to new date format using file modification time
+        """
+        # Find old format files (screenshot_number.png)
+        old_files = []
+        for file_path in glob.glob(os.path.join(screenshot_dir, "screenshot_*.png")):
+            file_name = os.path.basename(file_path)
+            # Check if it's old format (just screenshot_number.png)
+            if file_name.startswith("screenshot_") and file_name.endswith(".png"):
+                name_part = file_name[11:-4]  # Remove "screenshot_" and ".png"
+                try:
+                    # If it's just a number, it's old format
+                    int(name_part)
+                    old_files.append(file_path)
+                except ValueError:
+                    # If conversion fails, it's already new format or different format
+                    continue
+        
+        # Migrate old files
+        for old_file in old_files:
+            try:
+                # Get file modification time
+                mod_time = os.path.getmtime(old_file)
+                file_date = datetime.fromtimestamp(mod_time)
+                
+                # Create new filename with file's modification date
+                date_str = file_date.strftime("%d-%m-%Y")
+                time_str = file_date.strftime("%H-%M-%S")
+                
+                # Find next available number for that date
+                existing_files = glob.glob(os.path.join(screenshot_dir, f"screenshot_{date_str}_*.png"))
+                next_number = 1
+                if existing_files:
+                    current_numbers = []
+                    for existing_file in existing_files:
+                        try:
+                            base_name = os.path.basename(existing_file)
+                            parts = base_name.replace(".png", "").split("_")
+                            if len(parts) >= 4:
+                                number = int(parts[-1])
+                                current_numbers.append(number)
+                        except (ValueError, IndexError):
+                            pass
+                    if current_numbers:
+                        next_number = max(current_numbers) + 1
+                
+                # Create new filename
+                new_filename = f"screenshot_{date_str}_{time_str}_{next_number:03d}.png"
+                new_path = os.path.join(screenshot_dir, new_filename)
+                
+                # Rename the file
+                os.rename(old_file, new_path)
+                print(f"Migrated {os.path.basename(old_file)} to {new_filename}")
+                
+            except Exception as e:
+                print(f"Failed to migrate {old_file}: {e}")
+                # Continue with other files if one fails
 
 # Camera interface components - moved to ui_components/styles.py
 
@@ -191,45 +265,30 @@ def show_camera_permission_interface(parent, camera_feed_layout, grant_callback=
     button_widget = QWidget()
     button_layout = QHBoxLayout(button_widget)
     
-    # Grant permission button with enhanced hover effects
+    # Grant permission button (color-blind aware)
     grant_button = QPushButton(tr.get_text("grant_permission"))
     grant_button.setToolTip(tr.get_text("grant_permission_tooltip"))
-    grant_button.setStyleSheet("""
-        QPushButton {
-            background-color: #4CAF50;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-        }
-        QPushButton:hover {
-            background-color: #66BB6A;
-            border: 2px solid #81C784;
-        }
-        QPushButton:pressed {
-            background-color: #43A047;
-        }
-    """)
+    grant_button.setObjectName("permission_grant_button")
+    # Determine theme and color blindness type
+    current_theme = getattr(parent, 'theme', 'dark')
+    try:
+        cb_type = None
+        if hasattr(parent, 'color_blindness_combo') and parent.color_blindness_combo is not None:
+            cb_type = parent.color_blindness_combo.currentData()
+        if not cb_type and hasattr(parent, 'current_profile') and parent.current_profile is not None:
+            cb_type = getattr(parent.current_profile, 'color_blindness_type', 'none')
+        cb_type = (cb_type or 'none')
+    except Exception:
+        cb_type = 'none'
+    update_button_theme(grant_button, 'start', current_theme, cb_type)
     if grant_callback:
         grant_button.clicked.connect(grant_callback)
     
-    # Deny permission button with enhanced hover effects
+    # Deny permission button (color-blind aware)
     deny_button = QPushButton(tr.get_text("deny_permission"))
     deny_button.setToolTip(tr.get_text("deny_permission_tooltip"))
-    deny_button.setStyleSheet("""
-        QPushButton {
-            background-color: #f44336;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-        }
-        QPushButton:hover {
-            background-color: #EF5350;
-            border: 2px solid #E57373;
-        }
-        QPushButton:pressed {
-            background-color: #E53935;
-        }
-    """)
+    deny_button.setObjectName("permission_deny_button")
+    update_button_theme(deny_button, 'stop', current_theme, cb_type)
     if deny_callback:
         deny_button.clicked.connect(deny_callback)
     

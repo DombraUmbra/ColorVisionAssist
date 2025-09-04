@@ -5,16 +5,58 @@ Contains non-camera event handling functions
 
 import os
 import cv2
-from PyQt5.QtWidgets import QFileDialog, QLabel
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QFileDialog, QLabel, QSizePolicy
+from PyQt5.QtCore import Qt, QObject, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap
 from ..translations import translator as tr
 from ..ui_components import ScreenshotGallery
 from ..ui_components import AdvancedSettingsDialog
 from ..ui_components import apply_theme
+from ..ui_components.groups import _apply_combo_theme
 
 class EventHandlers:
     """Mixin class for event handling functionality"""
+    def _apply_detect_flags(self, red: bool, green: bool, blue: bool, yellow: bool, persist: bool = True):
+        """Atomically set detection checkboxes and optionally persist to settings/profile."""
+        try:
+            if hasattr(self, 'red_checkbox'):
+                self.red_checkbox.blockSignals(True)
+                self.red_checkbox.setChecked(bool(red))
+                self.red_checkbox.blockSignals(False)
+            if hasattr(self, 'green_checkbox'):
+                self.green_checkbox.blockSignals(True)
+                self.green_checkbox.setChecked(bool(green))
+                self.green_checkbox.blockSignals(False)
+            if hasattr(self, 'blue_checkbox'):
+                self.blue_checkbox.blockSignals(True)
+                self.blue_checkbox.setChecked(bool(blue))
+                self.blue_checkbox.blockSignals(False)
+            if hasattr(self, 'yellow_checkbox'):
+                self.yellow_checkbox.blockSignals(True)
+                self.yellow_checkbox.setChecked(bool(yellow))
+                self.yellow_checkbox.blockSignals(False)
+
+            if persist:
+                # Persist immediately to QSettings to avoid later overrides
+                try:
+                    if hasattr(self, 'settings') and self.settings is not None:
+                        self.settings.setValue('detect_red', bool(red))
+                        self.settings.setValue('detect_green', bool(green))
+                        self.settings.setValue('detect_blue', bool(blue))
+                        self.settings.setValue('detect_yellow', bool(yellow))
+                except Exception:
+                    pass
+                # Update current profile in-memory
+                try:
+                    if hasattr(self, 'current_profile') and self.current_profile is not None:
+                        self.current_profile.detect_red = bool(red)
+                        self.current_profile.detect_green = bool(green)
+                        self.current_profile.detect_blue = bool(blue)
+                        self.current_profile.detect_yellow = bool(yellow)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
     def take_screenshot(self):
         """Take screenshot"""
@@ -30,7 +72,26 @@ class EventHandlers:
         """Open gallery as a non-modal window (single instance)."""
         # Keep one instance to avoid modality issues blocking child viewers
         if not hasattr(self, "_gallery_window") or self._gallery_window is None:
+            # Create gallery with self as parent to ensure proper theme inheritance
             self._gallery_window = ScreenshotGallery(self)
+            # Set theme to match main window
+            self._gallery_window.theme = getattr(self, 'theme', 'dark')
+            # Apply theme immediately after construction
+            self._gallery_window.apply_gallery_theme(self._gallery_window.theme)
+            # Force complete theme application
+            self._gallery_window._force_complete_theme_application(self._gallery_window.theme)
+            # Restore last geometry if present in current profile
+            try:
+                prof = getattr(self, 'current_profile', None)
+                if prof:
+                    gx = int(getattr(prof, 'gallery_x', -1))
+                    gy = int(getattr(prof, 'gallery_y', -1))
+                    gw = int(getattr(prof, 'gallery_width', -1))
+                    gh = int(getattr(prof, 'gallery_height', -1))
+                    if gw > 100 and gh > 100 and gx >= 0 and gy >= 0:
+                        self._gallery_window.setGeometry(gx, gy, gw, gh)
+            except Exception:
+                pass
             # Ensure it's deleted on close so our reference can be cleared
             self._gallery_window.setAttribute(Qt.WA_DeleteOnClose, True)
             try:
@@ -38,6 +99,14 @@ class EventHandlers:
                 self._gallery_window.destroyed.connect(lambda _=None: setattr(self, "_gallery_window", None))
             except Exception:
                 pass
+        else:
+            # If window already exists, sync theme before showing
+            current_theme = getattr(self, 'theme', 'dark')
+            if self._gallery_window.theme != current_theme:
+                self._gallery_window.theme = current_theme
+                self._gallery_window.apply_gallery_theme(current_theme)
+                self._gallery_window._force_complete_theme_application(current_theme)
+        
         # Show and bring to front
         self._gallery_window.show()
         self._gallery_window.raise_()
@@ -112,7 +181,8 @@ class EventHandlers:
                 self.stability_enhancement_active,
                 color_blindness_type,
                 False,  # mobile_optimization
-                self.debug_mode_active
+                self.debug_mode_active,
+                getattr(self, 'background_dimming_enabled', True)
             )
             
             # Show result
@@ -150,16 +220,61 @@ class EventHandlers:
             title_label.setAlignment(Qt.AlignCenter)
             self.camera_feed_layout.addWidget(title_label)
             
-            # Show analyzed image
+            # Show analyzed image keeping aspect ratio and adapting on resize
             image_label = QLabel()
-            image_label.setPixmap(QPixmap.fromImage(qImg).scaled(
-                self.camera_feed_container.width() - 40,
-                self.camera_feed_container.height() - 80,  # Leave space for title
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            ))
+            image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            image_label.setMinimumSize(1, 1)
+            original_pix = QPixmap.fromImage(qImg)
+            image_label.setPixmap(original_pix)
             image_label.setAlignment(Qt.AlignCenter)
             self.camera_feed_layout.addWidget(image_label)
+
+            # Install an event filter to rescale image smoothly on container/label resize
+            class _ImageFitHelper(QObject):
+                def __init__(self, container, title, label, pix):
+                    super().__init__()
+                    self.container = container
+                    self.title = title
+                    self.label = label
+                    self.pix = pix
+
+                def _target_size(self) -> QSize:
+                    try:
+                        # Account for layout margins: camera_feed_layout has 20px margins
+                        margins_w = 40
+                        margins_h = 40
+                        title_h = self.title.height() if self.title and self.title.height() > 0 else 50
+                        w = max(1, self.container.width() - margins_w)
+                        h = max(1, self.container.height() - margins_h - title_h)
+                        return QSize(w, h)
+                    except Exception:
+                        return QSize(800, 600)
+
+                def _apply(self):
+                    try:
+                        target = self._target_size()
+                        scaled = self.pix.scaled(target, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        # Avoid unnecessary churn
+                        self.label.setPixmap(scaled)
+                    except Exception:
+                        pass
+
+                def eventFilter(self, obj, event):
+                    if event.type() == QEvent.Resize:
+                        self._apply()
+                    return False
+
+            helper = _ImageFitHelper(self.camera_feed_container, title_label, image_label, original_pix)
+            # Keep a reference to avoid GC
+            image_label._fit_helper = helper  # type: ignore[attr-defined]
+            self.camera_feed_container.installEventFilter(helper)
+            image_label.installEventFilter(helper)
+            # Apply initial fit after layout completes
+            try:
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(0, helper._apply)
+            except Exception:
+                helper._apply()
             
             # Status message
             self.status_bar.showMessage(tr.get_text("file_analysis_complete"))
@@ -169,50 +284,114 @@ class EventHandlers:
 
     def color_blindness_type_changed(self, index):
         """Automatic color selection when color blindness type changes"""
-        type_code = self.color_blindness_combo.itemData(index)
+        # Get the data using the new combobox method
+        type_code = self.color_blindness_combo.currentData()
         
-        # Turn off all colors first
-        self.red_checkbox.setChecked(False)
-        self.green_checkbox.setChecked(False)
-        self.blue_checkbox.setChecked(False)
-        self.yellow_checkbox.setChecked(False)
+        # Skip if this is a category header or no valid data
+        if type_code is None or type_code == "category":
+            return
         
-        # Turn on appropriate colors based on selected type
-        if type_code == "red_green":
-            # Red-Green color blindness
-            self.red_checkbox.setChecked(True)
-            self.green_checkbox.setChecked(True)
-        elif type_code == "blue_yellow":
-            # Blue-Yellow color blindness
-            self.blue_checkbox.setChecked(True)
-            self.yellow_checkbox.setChecked(True)
+        # Apply appropriate colors based on selected type
+        if type_code == "none":
+            # No color blindness - no automatic selection
+            self._apply_detect_flags(False, False, False, False, persist=True)
         elif type_code == "protanopia":
-            # Protanopia (Red blindness) - Difficulty distinguishing red and green
-            self.red_checkbox.setChecked(True)
-            self.green_checkbox.setChecked(True)
-            self.blue_checkbox.setChecked(True)  # Blue is clearly visible
+            # Protanopia: focus on detecting Red and Green
+            self._apply_detect_flags(True, True, False, False, persist=True)
         elif type_code == "deuteranopia":
-            # Deuteranopia (Green blindness) - Difficulty distinguishing red and green
-            self.red_checkbox.setChecked(True)
-            self.green_checkbox.setChecked(True)
-            self.blue_checkbox.setChecked(True)  # Blue is clearly visible
+            # Deuteranopia: focus on detecting Red and Green
+            self._apply_detect_flags(True, True, False, False, persist=True)
         elif type_code == "tritanopia":
-            # Tritanopia (Blue blindness) - Difficulty distinguishing blue and yellow
-            self.blue_checkbox.setChecked(True)
-            self.yellow_checkbox.setChecked(True)
-            self.red_checkbox.setChecked(True)  # Red is clearly visible
-        elif type_code == "complete":
-            # Complete color blindness - All colors
-            self.red_checkbox.setChecked(True)
-            self.green_checkbox.setChecked(True)
-            self.blue_checkbox.setChecked(True)
-            self.yellow_checkbox.setChecked(True)
+            # Tritanopia: focus on detecting Blue and Yellow
+            self._apply_detect_flags(False, False, True, True, persist=True)
         elif type_code == "custom":
             # Custom color selection - Open advanced settings
             self.open_advanced_settings()
         
+        # If Advanced Settings dialog is open, sync its checkboxes as well
+        try:
+            self._sync_advanced_settings_color_checkboxes()
+        except Exception:
+            pass
+        
+        # Update current profile immediately so child windows (e.g., gallery) can read the new value
+        try:
+            if hasattr(self, 'current_profile') and self.current_profile is not None:
+                self.current_profile.color_blindness_type = type_code
+        except Exception:
+            pass
+
+        # Update button colors for color blindness accessibility
+        self.update_button_colors_for_accessibility(type_code)
+
+        # Update open gallery button themes if gallery is open
+        try:
+            if hasattr(self, '_gallery_window') and self._gallery_window is not None:
+                if hasattr(self._gallery_window, 'refresh_button_themes'):
+                    self._gallery_window.refresh_button_themes()
+                # Also force a minor style/palette nudge to trigger repaint cascades
+                try:
+                    from PyQt5.QtCore import QTimer
+                    QTimer.singleShot(0, self._gallery_window.update)
+                    QTimer.singleShot(10, self._gallery_window.repaint)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Adjust or restore accent colors based on selection
+        try:
+            if hasattr(self, '_apply_accessible_accent_colors'):
+                if type_code == 'tritanopia':
+                    # Under tritanopia, convert any pink accents to Start-button blue; keep blues as blue
+                    self._apply_accessible_accent_colors()
+                else:
+                    # Restore baseline theme accents (re-apply group boxes and child window themes)
+                    if hasattr(self, '_force_refresh_group_boxes'):
+                        self._force_refresh_group_boxes()
+                        # Re-apply profile selector theme so its button styles aren't overridden
+                        try:
+                            if hasattr(self, 'profile_selector') and self.profile_selector is not None:
+                                self.profile_selector.apply_theme()
+                        except Exception:
+                            pass
+                    if hasattr(self, '_update_child_window_themes'):
+                        self._update_child_window_themes()
+        except Exception:
+            pass
+        
         # Auto-save profile when color blindness type changes
         self.auto_save_profile_on_change()
+
+        # Ensure profile selector buttons keep their intended styles
+        try:
+            if hasattr(self, 'profile_selector') and self.profile_selector is not None:
+                self.profile_selector.apply_theme()
+        except Exception:
+            pass
+
+    def _sync_advanced_settings_color_checkboxes(self):
+        """If Advanced Settings dialog is open, align its color checkboxes with main window."""
+        try:
+            from PyQt5.QtWidgets import QApplication
+            from ..ui_components.dialogs import AdvancedSettingsDialog
+            for window in QApplication.topLevelWidgets():
+                if isinstance(window, AdvancedSettingsDialog):
+                    if hasattr(window, 'red_checkbox') and window.red_checkbox is not None:
+                        window.red_checkbox.setChecked(self.red_checkbox.isChecked())
+                    if hasattr(window, 'green_checkbox') and window.green_checkbox is not None:
+                        window.green_checkbox.setChecked(self.green_checkbox.isChecked())
+                    if hasattr(window, 'blue_checkbox') and window.blue_checkbox is not None:
+                        window.blue_checkbox.setChecked(self.blue_checkbox.isChecked())
+                    if hasattr(window, 'yellow_checkbox') and window.yellow_checkbox is not None:
+                        window.yellow_checkbox.setChecked(self.yellow_checkbox.isChecked())
+                    try:
+                        window.update()
+                        window.repaint()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     def open_advanced_settings(self):
         """Open advanced settings dialog"""
@@ -337,8 +516,15 @@ class EventHandlers:
                 self.theme_combo.setToolTip(tr.get_text("theme_tooltip"))
                 self.theme_combo.blockSignals(False)
 
+            # Update all dropdown themes after language change
+            self._update_dropdown_themes()
+
             # Auto-save profile
             self.auto_save_profile_on_change()
+
+            # Update languages of any open child windows (gallery/dialogs)
+            if hasattr(self, '_update_child_window_languages'):
+                self._update_child_window_languages()
 
     def change_theme(self, index):
         """Change application theme"""
@@ -369,9 +555,8 @@ class EventHandlers:
         if hasattr(self, 'profile_selector'):
             self.profile_selector.apply_theme()
         
-        # Update combo box themes
-        from ..ui_components.groups import update_combo_themes
-        update_combo_themes(self)
+        # Update all dropdown themes
+        self._update_dropdown_themes()
         
         # Update any open dialog/gallery windows with new theme
         self._update_child_window_themes()
@@ -394,3 +579,49 @@ class EventHandlers:
         """Auto-save current profile when any setting changes"""
         if hasattr(self, 'profile_selector'):
             self.profile_selector.auto_save_current_profile()
+
+    def update_button_colors_for_accessibility(self, color_blindness_type):
+        """Update button colors based on color blindness type for better accessibility"""
+        from ..ui_components.buttons import update_button_theme
+        
+        # Get current theme
+        theme = getattr(self, 'theme', 'dark')
+        
+        # Update all main buttons with accessibility colors
+        if hasattr(self, 'camera_toggle_button'):
+            if self.camera_manager.camera_open:
+                update_button_theme(self.camera_toggle_button, 'stop', theme, color_blindness_type)
+            else:
+                update_button_theme(self.camera_toggle_button, 'start', theme, color_blindness_type)
+                
+        if hasattr(self, 'screenshot_button'):
+            update_button_theme(self.screenshot_button, 'snapshot', theme, color_blindness_type)
+            
+        if hasattr(self, 'load_file_button'):
+            update_button_theme(self.load_file_button, 'load_file', theme, color_blindness_type)
+            
+        if hasattr(self, 'gallery_button'):
+            update_button_theme(self.gallery_button, 'gallery', theme, color_blindness_type)
+            
+        # Keep Advanced Settings button style constant (not color-blindness dependent)
+        # so it matches the Reset Camera Permission button at all times
+        if hasattr(self, 'advanced_settings_button'):
+            update_button_theme(self.advanced_settings_button, 'default', theme, 'none')
+
+        # Also update permission dialog buttons if the permission UI is visible
+        try:
+            if hasattr(self, '_update_camera_permission_interface_theme'):
+                self._update_camera_permission_interface_theme()
+        except Exception:
+            pass
+
+    def _update_dropdown_themes(self):
+        """Update all dropdown themes when theme changes"""
+        if hasattr(self, 'color_blindness_combo'):
+            _apply_combo_theme(self.color_blindness_combo, self)
+        
+        if hasattr(self, 'language_combo'):
+            _apply_combo_theme(self.language_combo, self)
+        
+        if hasattr(self, 'theme_combo'):
+            _apply_combo_theme(self.theme_combo, self)

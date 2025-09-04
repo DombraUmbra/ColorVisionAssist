@@ -38,6 +38,11 @@ class UserProfile:
     filter_strength: float = 1.0
     created_date: str = ""
     last_used_date: str = ""
+    # Gallery window placement (per-profile)
+    gallery_x: int = -1
+    gallery_y: int = -1
+    gallery_width: int = -1
+    gallery_height: int = -1
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert profile to dictionary"""
@@ -282,6 +287,12 @@ class ProfileManager:
         self.settings.setValue("auto_detection", profile.auto_detection)
         self.settings.setValue("filter_strength", profile.filter_strength)
 
+        # Gallery window placement
+        self.settings.setValue("gallery_x", profile.gallery_x)
+        self.settings.setValue("gallery_y", profile.gallery_y)
+        self.settings.setValue("gallery_width", profile.gallery_width)
+        self.settings.setValue("gallery_height", profile.gallery_height)
+
         # Book-keeping
         self.settings.setValue("current_profile", profile.name)
         self.settings.sync()
@@ -314,7 +325,11 @@ class ProfileManager:
             auto_detection=self.settings.value("auto_detection", True, type=bool),
             filter_strength=float(self.settings.value("filter_strength", 1.0)),
             created_date=self.settings.value("profile_created_date", datetime.now().isoformat()),
-            last_used_date=datetime.now().isoformat()
+            last_used_date=datetime.now().isoformat(),
+            gallery_x=int(self.settings.value("gallery_x", -1)),
+            gallery_y=int(self.settings.value("gallery_y", -1)),
+            gallery_width=int(self.settings.value("gallery_width", -1)),
+            gallery_height=int(self.settings.value("gallery_height", -1))
         )
     
     def export_profile(self, profile_name: str, export_path: str) -> bool:

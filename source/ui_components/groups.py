@@ -7,9 +7,67 @@ import os
 from PyQt5.QtWidgets import (QLabel, QPushButton, QVBoxLayout, QGroupBox, 
                            QComboBox, QCheckBox, QHBoxLayout, QListView)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 from ..translations import translator as tr
 from .buttons import create_button
+
+class ColorBlindnessCombo(QComboBox):
+    """QComboBox with hierarchical color blindness type selection.
+    Category headers are non-selectable, sub-items are selectable.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setView(QListView())
+        self.model = QStandardItemModel()
+        self.setModel(self.model)
+        self._category_indices = []  # Track category item indices
+        self._last_valid_index = -1  # Track last valid selection
+        
+    def addCategoryItem(self, text):
+        """Add a non-selectable category header"""
+        item = QStandardItem(text)
+        item.setEnabled(False)  # Make it non-selectable
+        item.setData("category", Qt.UserRole)  # Mark as category
+        self.model.appendRow(item)
+        self._category_indices.append(self.model.rowCount() - 1)
+        
+    def addSelectableItem(self, text, data=None):
+        """Add a selectable sub-item"""
+        item = QStandardItem(text)
+        item.setEnabled(True)
+        item.setData(data, Qt.UserRole)
+        self.model.appendRow(item)
+        
+    def currentData(self, role=Qt.UserRole):
+        """Get data of currently selected item"""
+        index = self.currentIndex()
+        if index >= 0:
+            item = self.model.item(index)
+            if item and item.isEnabled():
+                return item.data(role)
+        return None
+        
+    def setCurrentData(self, data):
+        """Set current selection by data value"""
+        for i in range(self.model.rowCount()):
+            item = self.model.item(i)
+            if item and item.isEnabled() and item.data(Qt.UserRole) == data:
+                self.setCurrentIndex(i)
+                self._last_valid_index = i
+                return True
+        return False
+        
+    def setCurrentIndex(self, index):
+        """Override to prevent selection of category items"""
+        if index in self._category_indices:
+            # Don't allow selection of category items
+            if self._last_valid_index >= 0:
+                super().setCurrentIndex(self._last_valid_index)
+            return
+        
+        super().setCurrentIndex(index)
+        if index >= 0 and index not in self._category_indices:
+            self._last_valid_index = index
 
 class HiddenCurrentCombo(QComboBox):
     """QComboBox that hides the currently selected item from the popup list.
@@ -46,6 +104,21 @@ class HiddenCurrentCombo(QComboBox):
 def _apply_combo_theme(combo_box, parent):
     """Apply a unified, theme-aware styling to a QComboBox using external SVG files."""
     theme = getattr(parent, 'theme', 'dark') if parent else 'dark'
+    # Determine color blindness type to adapt hover accent (tritanopia now uses Start-button blue)
+    cb_type = None
+    try:
+        if parent and hasattr(parent, 'color_blindness_combo') and parent.color_blindness_combo is not None:
+            cb_type = parent.color_blindness_combo.currentData()
+        if not cb_type and parent and hasattr(parent, 'current_profile') and parent.current_profile is not None:
+            cb_type = getattr(parent.current_profile, 'color_blindness_type', 'none')
+    except Exception:
+        cb_type = 'none'
+    cb_type = (cb_type or 'none').lower()
+    hover_accent_light = '#2196F3'
+    hover_accent_dark = '#64B5F6'
+    # Hover background for items in popup; selected state will match base background
+    hover_bg_light = '#E3F2FD'
+    hover_bg_dark = '#64B5F6'
     
     # Define paths for icons, ensuring they are correct
     # Go up two levels to reach project root where 'icons' folder resides
@@ -89,10 +162,47 @@ def _apply_combo_theme(combo_box, parent):
                 color: #333;
             }}
             QComboBox:hover {{
-                border: 1px solid #2196F3;
+                border: 1px solid {hover_accent_light};
             }}
             QComboBox::drop-down {{
                 border-left-color: #CCCCCC;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: white;
+                color: #333;
+                /* Selected rows should not be visually highlighted when not hovered */
+                selection-background-color: white;
+                    /* Avoid icon/text shift on selection */
+                    show-decoration-selected: 0;
+                border: 1px solid #CCCCCC;
+                outline: none;
+            }}
+                /* Base item style */
+                QComboBox QAbstractItemView::item {{ background-color: transparent; }}
+            QComboBox QAbstractItemView::item:selected,
+            QComboBox QAbstractItemView::item:selected:active,
+            QComboBox QAbstractItemView::item:selected:!active {{
+                /* Keep selected background same as base; rely on :hover for highlight */
+                background-color: white;
+                color: #333;
+            }}
+                /* Ensure hover color is visible even when item is in any selected state */
+                QComboBox QAbstractItemView::item:hover,
+                QComboBox QAbstractItemView::item:selected:hover,
+                QComboBox QAbstractItemView::item:selected:active:hover,
+                QComboBox QAbstractItemView::item:selected:!active:hover {{
+                    background-color: {hover_bg_light};
+                    color: #333;
+                    padding: 4px 8px 4px 12px; /* subtle right shift on hover */
+                }}
+            QComboBox QAbstractItemView::item:disabled {{
+                background-color: #F5F5F5;
+                color: #666;
+                font-weight: bold;
+                padding: 6px;
+            }}
+            QComboBox QAbstractItemView::item:enabled {{
+                padding: 4px 8px;
             }}
         """)
     else:  # dark theme
@@ -104,7 +214,7 @@ def _apply_combo_theme(combo_box, parent):
                 color: #EEE;
             }}
             QComboBox:hover {{
-                border: 1px solid #64B5F6;
+                border: 1px solid {hover_accent_dark};
             }}
             QComboBox::drop-down {{
                 border-left-color: #555;
@@ -112,20 +222,69 @@ def _apply_combo_theme(combo_box, parent):
             QComboBox QAbstractItemView {{
                 background-color: #2b2b2b;
                 color: #EEE;
-                selection-background-color: #64B5F6;
+                /* Selected rows should not be visually highlighted when not hovered */
+                selection-background-color: #2b2b2b;
+                    /* Avoid icon/text shift on selection */
+                    show-decoration-selected: 0;
                 border: 1px solid #555;
                 outline: none;
             }}
+                /* Base item style */
+                QComboBox QAbstractItemView::item {{ background-color: transparent; }}
+            QComboBox QAbstractItemView::item:selected,
+            QComboBox QAbstractItemView::item:selected:active,
+            QComboBox QAbstractItemView::item:selected:!active {{
+                /* Keep selected background same as base; rely on :hover for highlight */
+                background-color: #2b2b2b;
+                color: #EEE;
+            }}
+                /* Ensure hover color is visible even when item is in any selected state */
+                QComboBox QAbstractItemView::item:hover,
+                QComboBox QAbstractItemView::item:selected:hover,
+                QComboBox QAbstractItemView::item:selected:active:hover,
+                QComboBox QAbstractItemView::item:selected:!active:hover {{
+                    background-color: {hover_bg_dark};
+                    color: #EEE;
+                    padding: 4px 8px 4px 12px; /* subtle right shift on hover */
+                }}
+            QComboBox QAbstractItemView::item:disabled {{
+                background-color: #3a3a3a;
+                color: #888;
+                font-weight: bold;
+                padding: 6px;
+            }}
+            QComboBox QAbstractItemView::item:enabled {{
+                padding: 4px 8px;
+            }}
         """)
 
-def update_combo_themes(parent):
-    """Update all combo box themes when theme changes"""
-    if hasattr(parent, 'color_blindness_combo'):
-        _apply_combo_theme(parent.color_blindness_combo, parent)
-    if hasattr(parent, 'language_combo'):
-        _apply_combo_theme(parent.language_combo, parent)
-    if hasattr(parent, 'theme_combo'):
-        _apply_combo_theme(parent.theme_combo, parent)
+def update_color_blindness_combo_language(combo):
+    """Update the hierarchical color blindness combo box language while preserving structure and selection"""
+    if not hasattr(combo, 'addCategoryItem'):
+        # If it's not our custom combo, ignore the update
+        return
+    
+    # Store current selection
+    current_data = combo.currentData()
+    
+    # Clear and rebuild with new language
+    combo.model.clear()
+    combo._category_indices = []
+    
+    # Rebuild hierarchical structure with new language
+    combo.addCategoryItem(tr.get_text("red_green_colorblind"))
+    combo.addSelectableItem("  " + tr.get_text("protanopia"), "protanopia")
+    combo.addSelectableItem("  " + tr.get_text("deuteranopia"), "deuteranopia")
+    
+    combo.addCategoryItem(tr.get_text("blue_yellow_colorblind"))
+    combo.addSelectableItem("  " + tr.get_text("tritanopia"), "tritanopia")
+    
+    combo.addCategoryItem(tr.get_text("other"))
+    combo.addSelectableItem("  " + tr.get_text("custom_colors"), "custom")
+    
+    # Restore selection
+    if current_data:
+        combo.setCurrentData(current_data)
 
 def create_color_blindness_type_group(parent):
     """Create color blindness type selection group"""
@@ -133,15 +292,23 @@ def create_color_blindness_type_group(parent):
     color_blindness_layout = QVBoxLayout()
     color_blindness_layout.setSpacing(10)
     
-    # Color blindness type selection
-    parent.color_blindness_combo = HiddenCurrentCombo()
-    parent.color_blindness_combo.addItem(tr.get_text("red_green_colorblind"), "red_green")
-    parent.color_blindness_combo.addItem(tr.get_text("blue_yellow_colorblind"), "blue_yellow")
-    parent.color_blindness_combo.addItem(tr.get_text("protanopia"), "protanopia")
-    parent.color_blindness_combo.addItem(tr.get_text("deuteranopia"), "deuteranopia")
-    parent.color_blindness_combo.addItem(tr.get_text("tritanopia"), "tritanopia")
-    parent.color_blindness_combo.addItem(tr.get_text("complete_colorblind"), "complete")
-    parent.color_blindness_combo.addItem(tr.get_text("custom_colors"), "custom")
+    # Color blindness type selection with hierarchical structure
+    parent.color_blindness_combo = ColorBlindnessCombo()
+    
+    # Add hierarchical items
+    # Category headers (non-selectable)
+    parent.color_blindness_combo.addCategoryItem(tr.get_text("red_green_colorblind"))
+    parent.color_blindness_combo.addSelectableItem("  " + tr.get_text("protanopia"), "protanopia")
+    parent.color_blindness_combo.addSelectableItem("  " + tr.get_text("deuteranopia"), "deuteranopia")
+    
+    parent.color_blindness_combo.addCategoryItem(tr.get_text("blue_yellow_colorblind"))
+    parent.color_blindness_combo.addSelectableItem("  " + tr.get_text("tritanopia"), "tritanopia")
+    
+    # Other category for custom settings
+    parent.color_blindness_combo.addCategoryItem(tr.get_text("other"))
+    parent.color_blindness_combo.addSelectableItem("  " + tr.get_text("custom_colors"), "custom")
+    
+    # Don't set default selection here - let profile system handle it
     
     # Apply theme-aware styling to combo box
     _apply_combo_theme(parent.color_blindness_combo, parent)
@@ -374,10 +541,10 @@ def create_about_group(parent):
     about_layout.addWidget(parent.about_label)
 
     # Contributors list
-    contributors_title = QLabel(tr.get_text("contributors"))
-    contributors_title.setAlignment(Qt.AlignCenter)
-    contributors_title.setStyleSheet("color: #2196F3; font-weight: bold; margin-top: 6px;")
-    about_layout.addWidget(contributors_title)
+    parent.contributors_title = QLabel(tr.get_text("contributors"))
+    parent.contributors_title.setAlignment(Qt.AlignCenter)
+    parent.contributors_title.setStyleSheet("color: #2196F3; font-weight: bold; margin-top: 6px;")
+    about_layout.addWidget(parent.contributors_title)
 
     contributors = [
         "Ammar Yasir Bayır",

@@ -11,6 +11,7 @@ from .groups import _apply_combo_theme, HiddenCurrentCombo
 from ..profile_manager import ProfileManager, UserProfile
 from ..translations import translator as tr
 from datetime import datetime
+from .buttons import update_button_theme
 
 
 class ProfileSelector(QGroupBox):
@@ -114,10 +115,30 @@ class ProfileSelector(QGroupBox):
 
     def _message_box(self, icon: QMessageBox.Icon, title: str, text: str, buttons=QMessageBox.Ok) -> int:
         box = QMessageBox(self)
+        # Apply themed content stylesheet
         self._apply_dialog_stylesheet(box)
         box.setIcon(icon)
         box.setWindowTitle(title)
         box.setText(text)
+        # Prefer non-native dialog so we can style and get a close (X) button reliably
+        try:
+            box.setOption(QMessageBox.DontUseNativeDialog, True)
+        except Exception:
+            pass
+        # Ensure title/close buttons visible and help button hidden
+        try:
+            box.setWindowFlags(box.windowFlags() | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+            box.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+        except Exception:
+            pass
+        # Apply Windows title bar dark/light mode like in themed_get_text
+        try:
+            self._apply_title_bar_theme(box)
+            # Re-apply after show with a slight delay to survive OS repaint
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(50, lambda: self._apply_title_bar_theme(box))
+        except Exception:
+            pass
         box.setStandardButtons(buttons)
         return box.exec_()
 
@@ -155,35 +176,20 @@ class ProfileSelector(QGroupBox):
             box.setDefaultButton(yes_btn)
         except Exception:
             pass
-        # Inline theme-aware styles
+        # Apply CB-aware button theming (Yes = 'start', No = 'stop')
         try:
             theme = self._get_theme()
-            if theme == 'light':
-                yes_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #34C759; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #248A3D; }
-                    """
-                )
-                no_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF3B30; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #D70015; }
-                    """
-                )
-            else:
-                yes_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #32D74B; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #64E478; }
-                    """
-                )
-                no_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF453A; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #FF6961; }
-                    """
-                )
+            cb_type = 'none'
+            if getattr(self, 'parent_window', None) and getattr(self.parent_window, 'current_profile', None):
+                cb_type = getattr(self.parent_window.current_profile, 'color_blindness_type', 'none') or 'none'
+            update_button_theme(yes_btn, 'start', theme, cb_type)
+            update_button_theme(no_btn, 'stop', theme, cb_type)
+            # Keep reasonable minimum widths for readability
+            try:
+                yes_btn.setMinimumWidth(84)
+                no_btn.setMinimumWidth(84)
+            except Exception:
+                pass
         except Exception:
             pass
         # Apply dark/light title bar on Windows
@@ -279,35 +285,14 @@ class ProfileSelector(QGroupBox):
                 pass
             btn.setMinimumHeight(36)
             btn.setMinimumWidth(110)
-        # Apply per-button theme-aware styles to ensure precedence over parent styles
+        # Apply color-blind-aware styles using unified button theming
         try:
             theme = self._get_theme()
-            if theme == 'light':
-                ok_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #34C759; color: white; border: none; border-radius: 4px; }
-                    QPushButton:hover { background-color: #248A3D; }
-                    """
-                )
-                cancel_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF3B30; color: white; border: none; border-radius: 4px; }
-                    QPushButton:hover { background-color: #D70015; }
-                    """
-                )
-            else:
-                ok_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #32D74B; color: white; border: none; border-radius: 4px; }
-                    QPushButton:hover { background-color: #64E478; }
-                    """
-                )
-                cancel_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF453A; color: white; border: none; border-radius: 4px; }
-                    QPushButton:hover { background-color: #FF6961; }
-                    """
-                )
+            cb_type = 'none'
+            if getattr(self, 'parent_window', None) and getattr(self.parent_window, 'current_profile', None):
+                cb_type = getattr(self.parent_window.current_profile, 'color_blindness_type', 'none') or 'none'
+            update_button_theme(ok_btn, 'start', theme, cb_type)
+            update_button_theme(cancel_btn, 'stop', theme, cb_type)
         except Exception:
             pass
         ok_btn.clicked.connect(dialog.accept)
@@ -317,22 +302,7 @@ class ProfileSelector(QGroupBox):
         btn_row.addWidget(cancel_btn)
         btn_row.addWidget(ok_btn)
         layout.addLayout(btn_row)
-        # Make the Save button green (theme-aware)
-        try:
-            theme = self._get_theme()
-            if theme == 'light':
-                primary_css = """
-                QPushButton#primarySaveButton { background-color: #34C759 !important; color: white !important; }
-                QPushButton#primarySaveButton:hover { background-color: #248A3D !important; }
-                """
-            else:
-                primary_css = """
-                QPushButton#primarySaveButton { background-color: #32D74B !important; color: white !important; }
-                QPushButton#primarySaveButton:hover { background-color: #64E478 !important; }
-                """
-            dialog.setStyleSheet(dialog.styleSheet() + primary_css)
-        except Exception:
-            pass
+    # Save button color is handled via update_button_theme above (CB-aware), no extra override needed
         # Re-apply title bar theme after dialog is about to show
         try:
             from PyQt5.QtCore import QTimer
@@ -455,7 +425,6 @@ class ProfileSelector(QGroupBox):
                     self.profile_combo.setCurrentIndex(index)
                 
                 self.profile_changed.emit(name)
-                self.themed_info(tr.get_text("success"), tr.get_text("profile_created_successfully", name))
             else:
                 self.themed_error(tr.get_text("error"), tr.get_text("failed_to_create_profile"))
     
@@ -630,10 +599,10 @@ class ProfileSelector(QGroupBox):
         
         # Get color blindness type
         if hasattr(self.parent_window, 'color_blindness_combo'):
-            cb_index = self.parent_window.color_blindness_combo.currentIndex()
-            cb_types = ["none", "protanopia", "deuteranopia", "tritanopia"]
-            if 0 <= cb_index < len(cb_types):
-                profile.color_blindness_type = cb_types[cb_index]
+            # Use the new currentData method for the new combobox
+            color_blindness_type = self.parent_window.color_blindness_combo.currentData()
+            if color_blindness_type:
+                profile.color_blindness_type = color_blindness_type
         
         # Get language
         if hasattr(self.parent_window, 'language_combo'):
@@ -730,6 +699,22 @@ class ProfileSelector(QGroupBox):
                     if hasattr(self.parent_window, 'apply_theme_to_components'):
                         self.parent_window.apply_theme_to_components()
                     
+                    # Update open gallery window if exists
+                    if hasattr(self.parent_window, '_gallery_window') and self.parent_window._gallery_window is not None:
+                        try:
+                            # Force complete theme reset on gallery
+                            self.parent_window._gallery_window.theme = self.parent_window.theme
+                            # Clear all stylesheets first to prevent conflicts
+                            self.parent_window._gallery_window.setStyleSheet("")
+                            # Apply themes with forced updates
+                            self.parent_window._gallery_window.apply_gallery_theme(self.parent_window.theme)
+                            self.parent_window._gallery_window._force_complete_theme_application(self.parent_window.theme)
+                            # Force additional update cycle
+                            from PyQt5.QtCore import QTimer
+                            QTimer.singleShot(50, lambda: self._delayed_gallery_update(self.parent_window._gallery_window, self.parent_window.theme))
+                        except Exception as e:
+                            print(f"Error updating gallery theme: {e}")
+                    
                     # Force refresh all group boxes to apply new theme
                     if hasattr(self.parent_window, '_force_refresh_group_boxes'):
                         self.parent_window._force_refresh_group_boxes()
@@ -739,12 +724,14 @@ class ProfileSelector(QGroupBox):
             
             # Color blindness type
             if hasattr(self.parent_window, 'color_blindness_combo'):
-                cb_types = ["none", "protanopia", "deuteranopia", "tritanopia"]
-                if profile.color_blindness_type in cb_types:
-                    index = cb_types.index(profile.color_blindness_type)
-                    self.parent_window.color_blindness_combo.blockSignals(True)
-                    self.parent_window.color_blindness_combo.setCurrentIndex(index)
-                    self.parent_window.color_blindness_combo.blockSignals(False)
+                # Use the new setCurrentData method for the new combobox
+                self.parent_window.color_blindness_combo.blockSignals(True)
+                success = self.parent_window.color_blindness_combo.setCurrentData(profile.color_blindness_type)
+                self.parent_window.color_blindness_combo.blockSignals(False)
+                
+                # Update button colors for accessibility
+                if hasattr(self.parent_window, 'update_button_colors_for_accessibility'):
+                    self.parent_window.update_button_colors_for_accessibility(profile.color_blindness_type)
             
             # DON'T change window position/size when switching profiles
             # Window properties will only be applied on application startup
@@ -834,17 +821,33 @@ class ProfileSelector(QGroupBox):
         """Apply current theme to profile selector"""
         # Get theme from parent window or current profile or default
         theme = "dark"  # Default theme
-        
+
         if hasattr(self.parent_window, 'theme') and self.parent_window.theme:
             theme = self.parent_window.theme
         elif hasattr(self.parent_window, 'current_profile') and self.parent_window.current_profile:
             theme = self.parent_window.current_profile.theme
         elif hasattr(self.parent_window, 'settings'):
             theme = self.parent_window.settings.value("theme", "dark")
-        
+
+        # Determine color blindness type to adapt accent under tritanopia
+        cb_type = None
+        try:
+            if hasattr(self.parent_window, 'color_blindness_combo') and self.parent_window.color_blindness_combo:
+                cb_type = self.parent_window.color_blindness_combo.currentData()
+            if not cb_type and hasattr(self.parent_window, 'current_profile') and self.parent_window.current_profile:
+                cb_type = getattr(self.parent_window.current_profile, 'color_blindness_type', None)
+        except Exception:
+            cb_type = None
+
+        is_tritanopia = (str(cb_type).lower() == 'tritanopia')
+
+        # Accent colors: always use blue family accents (tritanopia uses Start-button blue too)
+        accent_light = '#1976D2'
+        accent_dark = '#64B5F6'
+
         if theme == "light":
             # Apply only group and button styles at the container level; combo gets its own theme below
-            self.setStyleSheet("""
+            css = """
                 QGroupBox {
                     font-weight: bold;
                     border: 2px solid #E0E0E0;
@@ -857,7 +860,7 @@ class ProfileSelector(QGroupBox):
                     subcontrol-origin: margin;
                     left: 10px;
                     padding: 0 8px 0 8px;
-                    color: #1976D2;
+                    color: __ACCENT__;
                 }
                 QPushButton {
                     background-color: #F8F9FA;
@@ -870,15 +873,16 @@ class ProfileSelector(QGroupBox):
                 }
                 QPushButton:hover {
                     background-color: #E9ECEF;
-                    color: #1976D2;
+                    color: __ACCENT__;
                 }
                 QPushButton:pressed {
                     background-color: #DEE2E6;
                 }
-            """)
+            """
+            self.setStyleSheet(css.replace("__ACCENT__", accent_light))
         else:
             # Apply only group and button styles at the container level; combo gets its own theme below
-            self.setStyleSheet("""
+            css = """
                 QGroupBox {
                     font-weight: bold;
                     border: 2px solid #444;
@@ -891,7 +895,7 @@ class ProfileSelector(QGroupBox):
                     subcontrol-origin: margin;
                     left: 10px;
                     padding: 0 8px 0 8px;
-                    color: #64B5F6;
+                    color: __ACCENT__;
                 }
                 QPushButton {
                     background-color: #3A3A3A;
@@ -904,19 +908,97 @@ class ProfileSelector(QGroupBox):
                 }
                 QPushButton:hover {
                     background-color: #4A4A4A;
-                    color: #64B5F6;
+                    color: __ACCENT__;
                 }
                 QPushButton:pressed {
                     background-color: #5A5A5A;
                 }
-            """)
-        
+            """
+            self.setStyleSheet(css.replace("__ACCENT__", accent_dark))
+
+        # In case external accent replacer modified our stylesheet, ensure consistency by re-applying once
+        try:
+            ss = self.styleSheet() or ""
+            # If for any reason our QPushButton rules are stripped, enforce them again without recursion
+            if "QPushButton{" not in ss.replace(" ", ""):
+                self.setStyleSheet("")
+                if theme == "light":
+                    css2 = """
+                        QGroupBox {
+                            font-weight: bold;
+                            border: 2px solid #E0E0E0;
+                            border-radius: 5px;
+                            margin: 8px 0px;
+                            padding-top: 10px;
+                            background-color: #FAFAFA;
+                        }
+                        QGroupBox::title {
+                            subcontrol-origin: margin;
+                            left: 10px;
+                            padding: 0 8px 0 8px;
+                            color: __ACCENT__;
+                        }
+                        QPushButton {
+                            background-color: #F8F9FA;
+                            color: #495057;
+                            border: none;
+                            border-radius: 4px;
+                            font-weight: bold;
+                            font-size: 12pt;
+                            padding: 1px;
+                        }
+                        QPushButton:hover {
+                            background-color: #E9ECEF;
+                            color: __ACCENT__;
+                        }
+                        QPushButton:pressed {
+                            background-color: #DEE2E6;
+                        }
+                    """
+                    self.setStyleSheet(css2.replace("__ACCENT__", accent_light))
+                else:
+                    css2 = """
+                        QGroupBox {
+                            font-weight: bold;
+                            border: 2px solid #444;
+                            border-radius: 5px;
+                            margin: 8px 0px;
+                            padding-top: 10px;
+                            background-color: #333;
+                        }
+                        QGroupBox::title {
+                            subcontrol-origin: margin;
+                            left: 10px;
+                            padding: 0 8px 0 8px;
+                            color: __ACCENT__;
+                        }
+                        QPushButton {
+                            background-color: #3A3A3A;
+                            color: #CCC;
+                            border: none;
+                            border-radius: 4px;
+                            font-weight: bold;
+                            font-size: 12pt;
+                            padding: 1px;
+                        }
+                        QPushButton:hover {
+                            background-color: #4A4A4A;
+                            color: __ACCENT__;
+                        }
+                        QPushButton:pressed {
+                            background-color: #5A5A5A;
+                        }
+                    """
+                    self.setStyleSheet(css2.replace("__ACCENT__", accent_dark))
+        except Exception:
+            pass
+
         # Apply consistent, theme-aware combo styling with SVG arrow icon
         if hasattr(self, 'profile_combo'):
             _apply_combo_theme(self.profile_combo, self.parent_window)
             self.profile_combo.update()
             self.profile_combo.repaint()
-        
+
         # Force update the buttons to apply new styles immediately
         if hasattr(self, 'add_profile_btn'):
             self.add_profile_btn.update()
@@ -924,7 +1006,18 @@ class ProfileSelector(QGroupBox):
         if hasattr(self, 'menu_btn'):
             self.menu_btn.update()
             self.menu_btn.repaint()
-        
+
         # Force update the entire widget
         self.update()
         self.repaint()
+    
+    def _delayed_gallery_update(self, gallery_window, theme):
+        """Delayed gallery update to ensure all changes take effect"""
+        try:
+            if gallery_window and not gallery_window.isHidden():
+                # Force another round of updates with complete reset
+                gallery_window.setStyleSheet("")
+                gallery_window.apply_gallery_theme(theme)
+                gallery_window._force_complete_theme_application(theme)
+        except Exception:
+            pass

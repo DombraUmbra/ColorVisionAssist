@@ -33,23 +33,20 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
 
         # Initialize profile manager
         self.profile_manager = ProfileManager()
-        
         # Load settings
         self.settings = QSettings("ColorVisionAid", "CVA")
-        
+
         # Load current profile or create default
         from ..translations import translator as tr
         current_profile_name = self.settings.value("current_profile", tr.get_text("default_profile"))
         self.current_profile = self.profile_manager.load_profile(current_profile_name)
-        
         if not self.current_profile:
-            # Create default profile if not found
             self.current_profile = self.profile_manager.create_profile(tr.get_text("default_profile"))
             self.profile_manager.save_profile(self.current_profile)
-        
+
         # Apply profile settings to QSettings
         self.profile_manager.apply_profile_to_settings(self.current_profile)
-        
+
         # Set language and theme from profile
         language = self.current_profile.language
         tr.set_language(language)
@@ -61,10 +58,12 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         # Create camera manager and color detector
         self.camera_manager = CameraManager(self)
         self.color_detector = ColorDetector()
+        # Background dimming runtime flag (default enabled)
+        self.background_dimming_enabled = True
 
         # UI setup (from UISetup mixin)
         self.setup_ui()
-        
+
         # Apply current profile after UI is completely initialized
         # This ensures profile values override any default UI settings
         from PyQt5.QtCore import QTimer
@@ -80,45 +79,70 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                         self.blue_checkbox.setChecked(getattr(self.current_profile, 'detect_blue', False))
                     if hasattr(self, 'yellow_checkbox'):
                         self.yellow_checkbox.setChecked(getattr(self.current_profile, 'detect_yellow', False))
-                    
+
                     # Apply sensitivity slider value
                     if hasattr(self, 'sensitivity_slider'):
                         sens = float(getattr(self.current_profile, 'detection_sensitivity', 0.5))
                         slider_val = max(1, min(10, int(round(sens * 10))))
                         self.sensitivity_slider.setValue(slider_val)
-                    
+
                     # Apply advanced settings flags
                     self.skin_tone_filtering_active = bool(getattr(self.current_profile, 'skin_tone_filtering_active', True))
                     self.stability_enhancement_active = bool(getattr(self.current_profile, 'stability_enhancement_active', True))
                     self.debug_mode_active = bool(getattr(self.current_profile, 'debug_mode_active', False))
-                    
+                    # Load background dimming from settings/profile (default True)
+                    try:
+                        self.background_dimming_enabled = self.settings.value('background_dimming_enabled', True, type=bool)
+                    except Exception:
+                        self.background_dimming_enabled = True
+
+                    # Apply color blindness type to dropdown
+                    if hasattr(self, 'color_blindness_combo'):
+                        color_blindness_type = getattr(self.current_profile, 'color_blindness_type', 'protanopia')
+                        if color_blindness_type == "complete":
+                            color_blindness_type = "custom"
+                        try:
+                            self.color_blindness_combo.blockSignals(True)
+                            success = self.color_blindness_combo.setCurrentData(color_blindness_type)
+                            if not success:
+                                self.color_blindness_combo.setCurrentData('protanopia')
+                        finally:
+                            try:
+                                self.color_blindness_combo.blockSignals(False)
+                            except Exception:
+                                pass
+                        # Manually update button/accessibility accents since handler didn't run
+                        try:
+                            cb_type_final = self.color_blindness_combo.currentData() or color_blindness_type
+                            if hasattr(self, 'update_button_colors_for_accessibility'):
+                                self.update_button_colors_for_accessibility(cb_type_final)
+                            if hasattr(self, '_apply_accessible_accent_colors'):
+                                self._apply_accessible_accent_colors()
+                        except Exception:
+                            pass
                 except Exception as e:
                     print(f"Warning: Could not apply profile values during UI setup: {e}")
-        
+
         # Apply profile after a short delay to ensure all UI components are ready
         QTimer.singleShot(100, apply_profile_after_ui_complete)
-        
+
         # Set application icon
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "icons", "app_icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        
+
         # Apply theme after UI setup - try to make Windows frame dark-compatible
         from ..ui_components import apply_theme
         apply_theme(self, self.theme)
         self._apply_window_theme()
-        
+
         # Also apply component-specific styles for current theme
         if hasattr(self, 'apply_theme_to_components'):
             self.apply_theme_to_components()
-        
+
         # Force refresh all QGroupBox styling to ensure proper theme application
         self._force_refresh_group_boxes()
-        
-        # Ensure combo boxes get proper theme on startup
-        from ..ui_components.groups import update_combo_themes
-        update_combo_themes(self)
-        
+
         # Apply theme to profile selector after main theme application
         if hasattr(self, 'profile_selector'):
             self.profile_selector.apply_theme()
@@ -168,6 +192,9 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
             if hasattr(self, 'debug_mode_active'):
                 val = self.settings.value('debug_mode_active', self.debug_mode_active, type=bool)
                 self.debug_mode_active = val
+            if hasattr(self, 'background_dimming_enabled'):
+                val = self.settings.value('background_dimming_enabled', self.background_dimming_enabled, type=bool)
+                self.background_dimming_enabled = val
 
             # Manual color selections for analysis (checkboxes)
             for key, attr in (
@@ -270,12 +297,8 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         from PyQt5.QtWidgets import QGroupBox
         from ..ui_components import apply_light_theme, apply_dark_theme
         
-        # Debug: Print current theme
-        print(f"Current theme in _force_refresh_group_boxes: {self.theme}")
-        
         # Find all QGroupBox widgets in the main window
         group_boxes = self.findChildren(QGroupBox)
-        print(f"Found {len(group_boxes)} QGroupBox widgets")
         
         for group_box in group_boxes:
             # Force repaint by temporarily hiding and showing
@@ -284,7 +307,6 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
             
             # Reapply theme-specific styling
             if self.theme == 'light':
-                print(f"Applying light theme to QGroupBox: {group_box.title()}")
                 group_box.setStyleSheet("""
                     QGroupBox {
                         font-weight: bold;
@@ -302,7 +324,6 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                     }
                 """)
             else:
-                print(f"Applying dark theme to QGroupBox: {group_box.title()}")
                 group_box.setStyleSheet("""
                     QGroupBox {
                         font-weight: bold;
@@ -342,6 +363,151 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 QTimer.singleShot(100, lambda w=window: w._force_scroll_area_background(self.theme))
                 # Apply title bar theme with delay
                 QTimer.singleShot(150, lambda w=window: w._apply_gallery_title_bar(self.theme))
+        # After theme propagation, adjust accent colors if needed (e.g., tritanopia)
+        try:
+            self._apply_accessible_accent_colors()
+        except Exception:
+            pass
+
+    def _apply_accessible_accent_colors(self):
+        """Adjust accent hex codes in stylesheets based on color blindness type.
+        - Tritanopia: ensure pink accents are converted to Start-button blue; do not convert blues to pink.
+        - Others: revert any pink accents back to the app's default blue accents.
+        """
+        try:
+            # Determine current color blindness type
+            cb_type = None
+            if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                cb_type = self.color_blindness_combo.currentData()
+            if not cb_type and hasattr(self, 'current_profile') and self.current_profile is not None:
+                cb_type = getattr(self.current_profile, 'color_blindness_type', 'none')
+            cb_type = cb_type or 'none'
+
+            from PyQt5.QtWidgets import QApplication, QWidget, QPushButton
+            from ..ui_components.styles import adjust_color_brightness
+
+            # Define palettes
+            blue_primary = '#2196F3'
+            blue_primary_alt = '#1976D2'
+            blue_dark_ui = '#1E88E5'
+            blue_darker = '#1565C0'
+            blue_light = '#64B5F6'
+            blue_lighter = '#90CAF9'
+            blue_lightest = '#BBDEFB'
+
+            pink = '#E91E63'
+            pink_light = adjust_color_brightness(pink, 1.25)
+            pink_lighter = adjust_color_brightness(pink, 1.45)
+            # Start-button accessible blue used under tritanopia for green class
+            start_blue = '#64B5F6'
+            start_blue_light = adjust_color_brightness(start_blue, 1.2)
+            start_blue_lighter = adjust_color_brightness(start_blue, 1.4)
+
+            if str(cb_type).lower() == 'tritanopia':
+                # Map existing pink accents -> Start-button blue; keep blues as blue
+                replace_map = {
+                    pink: start_blue,
+                    pink_light: start_blue_light,
+                    pink_lighter: start_blue_lighter,
+                }
+            else:
+                # Map pinks -> blues (best-effort defaults)
+                replace_map = {
+                    pink: blue_primary,
+                    pink_light: blue_light,
+                    pink_lighter: blue_lighter,
+                }
+
+            # Build target list: main window + its children + open dialogs/galleries with their children
+            targets = [self] + self.findChildren(QWidget)
+            try:
+                from ..ui_components.dialogs import AdvancedSettingsDialog
+                from ..ui_components.gallery import ScreenshotGallery
+                for w in QApplication.topLevelWidgets():
+                    if isinstance(w, (AdvancedSettingsDialog, ScreenshotGallery)):
+                        targets.append(w)
+                        targets.extend(w.findChildren(QWidget))
+            except Exception:
+                pass
+
+            for widget in targets:
+                try:
+                    # Skip replacing accents on specific widgets and all QPushButtons.
+                    # Buttons already apply CB-aware styles via update_button_theme; don't override them here.
+                    try:
+                        if widget.objectName() in ('camera_start_button', 'gallery_button', 'permission_deny_button'):
+                            continue
+                    except Exception:
+                        pass
+                    try:
+                        if isinstance(widget, QPushButton):
+                            continue
+                    except Exception:
+                        pass
+                    ss = widget.styleSheet() or ''
+                    if not ss:
+                        continue
+                    new_ss = ss
+                    for old, new in replace_map.items():
+                        new_ss = new_ss.replace(old, new).replace(old.lower(), new)
+                    if new_ss != ss:
+                        widget.setStyleSheet(new_ss)
+                        widget.update()
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    def _update_child_window_languages(self):
+        """Update language texts for any open child dialogs/windows."""
+        try:
+            from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget
+            from ..ui_components.dialogs import AdvancedSettingsDialog
+            from ..ui_components.gallery import ScreenshotGallery
+            from ..translations import translator as tr
+
+            for window in QApplication.topLevelWidgets():
+                if isinstance(window, ScreenshotGallery):
+                    # Update all texts and refresh to update dynamic labels (e.g., counts)
+                    try:
+                        window.update_ui_language()
+                    except Exception:
+                        pass
+                    try:
+                        # Re-apply sort styles to reflect any language-specific spacing
+                        window._apply_sort_styles(getattr(self, 'theme', 'dark'))
+                    except Exception:
+                        pass
+                    try:
+                        # Refresh to recalc info label with localized prefix
+                        window.refresh_gallery()
+                    except Exception:
+                        pass
+                elif isinstance(window, AdvancedSettingsDialog):
+                    # Best-effort: rebuild simple texts by recreating the dialog labels/buttons
+                    try:
+                        window.setWindowTitle(tr.get_text("advanced_settings"))
+                        # Recreate tab titles
+                        # If tab widget exists and supports setTabText, update with localized short titles
+                        for child in window.findChildren(QWidget):
+                            # TabWidget identification through property check
+                            try:
+                                if isinstance(child, QTabWidget):
+                                    # Update 3 tabs if present
+                                    titles = [
+                                        tr.get_text("color_selection_short"),
+                                        tr.get_text("parameters_short"),
+                                        tr.get_text("filtering_short"),
+                                    ]
+                                    for i, title in enumerate(titles):
+                                        if i < child.count():
+                                            child.setTabText(i, title)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+        except Exception:
+            pass
     
     def resizeEvent(self, event):
         """Handle window resize events to update responsive UI elements"""
@@ -388,15 +554,41 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
             if hasattr(self, 'apply_theme_to_components'):
                 self.apply_theme_to_components()
             
+            # Debug: Check if gallery window exists
+            print(f"Main window: Theme changed to {self.theme}")
+            print(f"Main window: Has gallery window: {hasattr(self, '_gallery_window')}")
+            if hasattr(self, '_gallery_window'):
+                print(f"Main window: Gallery window is None: {self._gallery_window is None}")
+            
+            # Update open gallery window if exists
+            if hasattr(self, '_gallery_window') and self._gallery_window is not None:
+                try:
+                    print(f"Main window: Updating gallery theme from {getattr(self._gallery_window, 'theme', 'unknown')} to {self.theme}")
+                    self._gallery_window.theme = self.theme
+                    self._gallery_window.apply_gallery_theme(self.theme)
+                    self._gallery_window._force_complete_theme_application(self.theme)
+                    print(f"Main window: Gallery theme update completed")
+                except Exception as e:
+                    print(f"Error updating gallery theme: {e}")
+            else:
+                print(f"Main window: No gallery window to update")
+            
             # Force refresh group boxes
             self._force_refresh_group_boxes()
             
             # Update child windows
             self._update_child_window_themes()
         
-        # Update window geometry if specified in profile
+        # Update window geometry if specified in profile (clamp to available screen size)
         if profile.window_width > 0 and profile.window_height > 0:
-            self.resize(profile.window_width, profile.window_height)
+            try:
+                from PyQt5.QtWidgets import QApplication
+                avail = QApplication.desktop().availableGeometry(self)
+                new_w = min(max(100, int(profile.window_width)), avail.width())
+                new_h = min(max(100, int(profile.window_height)), avail.height())
+                self.resize(new_w, new_h)
+            except Exception:
+                self.resize(profile.window_width, profile.window_height)
             
         if profile.window_x >= 0 and profile.window_y >= 0:
             self.move(profile.window_x, profile.window_y)

@@ -115,17 +115,16 @@ class ColorDetectionAlgorithms:
         
         return cleaned_mask
 
-    def apply_highlighting_system(self, frame, total_mask, detected_colors, color_blindness_type='red_green'):
+    def apply_highlighting_system(self, frame, total_mask, detected_colors, color_blindness_type='red_green', background_dimming=True):
         """
         Apply highlighting system to detected colors
         """
-        # Start with original frame for background darkening
-        result = frame.copy()
-        darkened_background = cv2.convertScaleAbs(frame, alpha=0.3, beta=0)  # 30% brightness
-        
-        # ALWAYS APPLY BACKGROUND DARKENING
-        # First darken the entire frame
-        result = darkened_background.copy()
+        # Start with original frame and optionally darken background
+        if background_dimming:
+            darkened_background = cv2.convertScaleAbs(frame, alpha=0.3, beta=0)  # 30% brightness
+            result = darkened_background.copy()
+        else:
+            result = frame.copy()
         
         # APPLY HIGHLIGHTING SYSTEM
         if np.sum(total_mask) > 0:
@@ -155,6 +154,19 @@ class ColorDetectionAlgorithms:
                     frame_color = self.color_blindness_mappings[color_blindness_type].get(color_name, (255, 255, 255))
                 else:
                     frame_color = (255, 255, 255)  # Default white
+
+                # Ensure red objects have a blue frame; green objects have light yellow in red_green mapping
+                if color_blindness_type == 'red_green':
+                    if color_name == 'red':
+                        frame_color = (255, 0, 0)  # BGR blue (dark)
+                    elif color_name == 'green':
+                        frame_color = (64, 255, 255)  # BGR light yellow
+                    elif color_name == 'yellow':
+                        frame_color = (230, 216, 173)  # BGR light blue
+                elif color_blindness_type == 'blue_yellow':
+                    # In BY mapping, show yellow objects with light blue frame for clarity
+                    if color_name == 'yellow':
+                        frame_color = (230, 216, 173)  # BGR light blue
                 
                 # Create mask for this contour
                 contour_mask = np.zeros(total_mask.shape, dtype=np.uint8)
@@ -184,6 +196,18 @@ class ColorDetectionAlgorithms:
                 text_color = self.color_blindness_mappings[color_blindness_type].get(color_name, (255, 255, 255))
             else:
                 text_color = (255, 255, 255)  # Default white
+
+            # Keep label colors consistent with frame overrides
+            if color_blindness_type == 'red_green':
+                if color_name == 'red':
+                    text_color = (255, 0, 0)  # BGR blue (dark)
+                elif color_name == 'green':
+                    text_color = (64, 255, 255)  # BGR light yellow
+                elif color_name == 'yellow':
+                    text_color = (230, 216, 173)  # BGR light blue
+            elif color_blindness_type == 'blue_yellow':
+                if color_name == 'yellow':
+                    text_color = (230, 216, 173)  # BGR light blue
             
             # Calculate center position
             center_x = x + w // 2
@@ -196,13 +220,10 @@ class ColorDetectionAlgorithms:
             text_x = center_x - text_size[0] // 2
             text_y = max(y - 10, 20)  # At least 20 pixels above
             
-            # Convert BGR to RGB (draw_text_with_utf8 expects RGB)
-            text_color_rgb = (text_color[2], text_color[1], text_color[0])
-            
             # Draw color blindness friendly text
             result = draw_text_with_utf8(
                 result, text, (text_x, text_y),
-                text_color=text_color_rgb, font_size=14,
+                text_color=text_color, font_size=14,
                 outline_color=(0, 0, 0), outline_thickness=2
             )
         

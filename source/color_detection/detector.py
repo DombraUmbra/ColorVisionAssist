@@ -55,7 +55,7 @@ class ColorDetector:
             lighting_parameters = {'morph_kernel_size': 5}
         return self.algorithms.additional_filters_for_red(red_mask, lighting_parameters)
     
-    def process_frame(self, frame, selected_colors, sensitivity=5, contrast=5, color_translations=None, skin_tone_filtering=True, stability_enhancement=True, color_blindness_type='red_green', mobile_optimization=False, debug_mode=False):
+    def process_frame(self, frame, selected_colors, sensitivity=5, contrast=5, color_translations=None, skin_tone_filtering=True, stability_enhancement=True, color_blindness_type='red_green', mobile_optimization=False, debug_mode=False, background_dimming=True):
         """
         Improved color detection + highlighting system
         
@@ -90,13 +90,12 @@ class ColorDetector:
             hsv = cv2.bilateralFilter(hsv, 9, 75, 75)
         
         # HIGHLIGHTING SYSTEM PREPARATION
-        # Start with original frame for background darkening
-        result = frame.copy()
-        darkened_background = cv2.convertScaleAbs(frame, alpha=0.3, beta=0)  # 30% brightness
-        
-        # ALWAYS APPLY BACKGROUND DARKENING
-        # First darken the entire frame
-        result = darkened_background.copy()
+        # Start with original frame and optionally darken background
+        if background_dimming:
+            darkened_background = cv2.convertScaleAbs(frame, alpha=0.3, beta=0)  # 30% brightness
+            result = darkened_background.copy()
+        else:
+            result = frame.copy()
         
         # Combine all color masks
         total_mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
@@ -162,11 +161,14 @@ class ColorDetector:
                     'text': text
                 })
         
+        # Normalize CB type to algorithm mapping keys so overlays adapt like buttons
+        cb_map_key = self._normalize_cb_mapping(color_blindness_type, selected_colors)
+
         # Apply highlighting system using algorithms module
-        result = self.algorithms.apply_highlighting_system(frame, total_mask, detected_colors, color_blindness_type)
+        result = self.algorithms.apply_highlighting_system(frame, total_mask, detected_colors, cb_map_key, background_dimming)
         
         # Draw color labels using algorithms module
-        result = self.algorithms.draw_color_labels(result, detected_colors, color_blindness_type)
+        result = self.algorithms.draw_color_labels(result, detected_colors, cb_map_key)
         
         # Debug mode: Print filtering information to screen
         if debug_mode:
@@ -181,3 +183,33 @@ class ColorDetector:
             )
         
         return result
+
+    def _normalize_cb_mapping(self, cb_type, selected_colors):
+        """Map UI CB types to algorithm mapping keys.
+        - 'protanopia'/'deuteranopia' -> 'red_green'
+        - 'tritanopia' -> 'blue_yellow'
+        - 'custom' -> infer: if only BY selected then 'blue_yellow', else 'red_green'
+        - fallback -> 'red_green'
+        """
+        try:
+            ct = (cb_type or 'none').lower()
+        except Exception:
+            ct = 'none'
+        if ct in ('protanopia', 'deuteranopia'):
+            return 'red_green'
+        if ct == 'tritanopia':
+            return 'blue_yellow'
+        if ct == 'custom':
+            try:
+                r = bool(selected_colors.get('red'))
+                g = bool(selected_colors.get('green'))
+                b = bool(selected_colors.get('blue'))
+                y = bool(selected_colors.get('yellow'))
+                # If user focused purely on BY pair, use blue_yellow mapping
+                if (b or y) and not (r or g):
+                    return 'blue_yellow'
+            except Exception:
+                pass
+            return 'red_green'
+        # Default mapping
+        return 'red_green'

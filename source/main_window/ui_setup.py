@@ -5,7 +5,7 @@ Contains all UI initialization and setup functions
 
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QStatusBar, 
-                           QCheckBox, QSlider, QApplication, QLabel)
+                           QCheckBox, QSlider, QApplication, QLabel, QPushButton)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
@@ -17,6 +17,7 @@ from ..ui_components import (
     create_about_group, 
     create_camera_interface
 )
+from ..ui_components.groups import update_color_blindness_combo_language
 from ..ui_components.buttons import update_button_theme
 
 class UISetup:
@@ -72,34 +73,44 @@ class UISetup:
     def apply_theme_to_components(self):
         """Apply theme-specific styles to inline-styled widgets and buttons."""
         theme = getattr(self, 'theme', 'dark').lower()
+        # Determine color blindness type for accent-aware styling (tritanopia uses Start-button blue)
+        try:
+            cb_type = None
+            if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                cb_type = self.color_blindness_combo.currentData()
+            if not cb_type and hasattr(self, 'current_profile') and self.current_profile is not None:
+                cb_type = getattr(self.current_profile, 'color_blindness_type', 'none')
+            cb_type = (cb_type or 'none').lower()
+        except Exception:
+            cb_type = 'none'
+
+        accent_border = '#64B5F6'
         # Camera area background
         if theme == 'light':
             self.camera_feed_container.setStyleSheet("background-color: #EDEFF1; border-radius: 10px;")
         else:
             self.camera_feed_container.setStyleSheet("background-color: #222; border-radius: 10px;")
 
-        # Apply combo box themes using the unified approach
-        from ..ui_components.groups import update_combo_themes
-        update_combo_themes(self)
-
-        # Buttons
+        # Buttons - Include color blindness support
+        color_blindness_type = getattr(self.current_profile, 'color_blindness_type', 'none') if hasattr(self, 'current_profile') and self.current_profile else 'none'
+        
         if self.camera_manager.camera_open:
-            update_button_theme(self.camera_toggle_button, 'stop', theme)
+            update_button_theme(self.camera_toggle_button, 'stop', theme, color_blindness_type)
         else:
-            update_button_theme(self.camera_toggle_button, 'start', theme)
-        update_button_theme(self.screenshot_button, 'snapshot', theme)
-        update_button_theme(self.load_file_button, 'load_file', theme)
-        update_button_theme(self.gallery_button, 'gallery', theme)
-        update_button_theme(self.advanced_settings_button, 'default', theme)
+            update_button_theme(self.camera_toggle_button, 'start', theme, color_blindness_type)
+        update_button_theme(self.screenshot_button, 'snapshot', theme, color_blindness_type)
+        update_button_theme(self.load_file_button, 'load_file', theme, color_blindness_type)
+        update_button_theme(self.gallery_button, 'gallery', theme, color_blindness_type)
+        update_button_theme(self.advanced_settings_button, 'default', theme, "none")
 
-        # Camera settings info label
+        # Camera settings info label (accent-aware left border)
         if theme == 'light':
             self.camera_info_label.setStyleSheet(
-                "QLabel { color: #444; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #F1F3F4; border-radius: 5px; border-left: 3px solid #64B5F6; max-height: 80px; }"
+                f"QLabel {{ color: #444; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #F1F3F4; border-radius: 5px; border-left: 3px solid {accent_border}; max-height: 80px; }}"
             )
         else:
             self.camera_info_label.setStyleSheet(
-                "QLabel { color: #CCC; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #3A3A3A; border-radius: 5px; border-left: 3px solid #64B5F6; max-height: 80px; }"
+                f"QLabel {{ color: #CCC; font-size: 9pt; padding: 10px; line-height: 1.5; background-color: #3A3A3A; border-radius: 5px; border-left: 3px solid {accent_border}; max-height: 80px; }}"
             )
 
         # Reset camera permission button
@@ -266,6 +277,27 @@ class UISetup:
                                                         color: #2196F3;
                                                     }
                                                 """)
+                                        # Update permission buttons with color-blind aware styles
+                                        try:
+                                            from ..ui_components.buttons import update_button_theme
+                                            if isinstance(inner_widget, QPushButton):
+                                                name = inner_widget.objectName() or ""
+                                                theme_val = getattr(self, 'theme', 'dark')
+                                                cb_type_val = None
+                                                try:
+                                                    if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                                                        cb_type_val = self.color_blindness_combo.currentData()
+                                                    if not cb_type_val and hasattr(self, 'current_profile') and self.current_profile is not None:
+                                                        cb_type_val = getattr(self.current_profile, 'color_blindness_type', 'none')
+                                                except Exception:
+                                                    cb_type_val = 'none'
+                                                cb_type_val = (cb_type_val or 'none')
+                                                if name == 'permission_grant_button':
+                                                    update_button_theme(inner_widget, 'start', theme_val, cb_type_val)
+                                                elif name == 'permission_deny_button':
+                                                    update_button_theme(inner_widget, 'stop', theme_val, cb_type_val)
+                                        except Exception:
+                                            pass
         self.settings_layout.addStretch()
         
         # Default color selection checkboxes (for advanced settings)
@@ -332,15 +364,8 @@ class UISetup:
                     elif isinstance(widget, QLabel) and i == 2:  # Third widget should be theme label
                         widget.setText(tr.get_text("theme"))
         
-        # Update color blindness combo box
-        self.color_blindness_combo.clear()
-        self.color_blindness_combo.addItem(tr.get_text("red_green_colorblind"), "red_green")
-        self.color_blindness_combo.addItem(tr.get_text("blue_yellow_colorblind"), "blue_yellow")
-        self.color_blindness_combo.addItem(tr.get_text("protanopia"), "protanopia")
-        self.color_blindness_combo.addItem(tr.get_text("deuteranopia"), "deuteranopia")
-        self.color_blindness_combo.addItem(tr.get_text("tritanopia"), "tritanopia")
-        self.color_blindness_combo.addItem(tr.get_text("complete_colorblind"), "complete")
-        self.color_blindness_combo.addItem(tr.get_text("custom_colors"), "custom")
+        # Update color blindness combo box with hierarchical structure
+        update_color_blindness_combo_language(self.color_blindness_combo)
         
         # Update advanced settings button
         self.advanced_settings_button.setText(tr.get_text("advanced_settings"))
@@ -358,6 +383,7 @@ class UISetup:
         # Update labels
         self.camera_info_label.setText(tr.get_text("camera_settings_info"))
         self.about_label.setText(tr.get_text("about_text"))
+        self.contributors_title.setText(tr.get_text("contributors"))
         self.permission_reset_button.setText(tr.get_text("reset_camera_permission"))
         
         # Update permission status

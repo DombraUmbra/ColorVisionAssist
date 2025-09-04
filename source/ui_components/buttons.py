@@ -5,9 +5,17 @@ Contains standardized button styles and creation functions
 
 from PyQt5.QtWidgets import QPushButton, QHBoxLayout
 from ..translations import translator as tr
+from .styles import apply_colorblind_friendly_button_style
 
-def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dark'):
-    """Apply style to button based on style_class and theme ('dark'|'light')."""
+def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dark', color_blindness_type: str = "none"):
+    """Apply style to button based on style_class, theme ('dark'|'light'), and color blindness type."""
+    
+    # If color blindness support is needed, use the accessible styling
+    if color_blindness_type in ["protanopia", "deuteranopia", "tritanopia"]:
+        apply_colorblind_friendly_button_style(button, style_class, color_blindness_type, theme)
+        return
+    
+    # Original styling for normal vision
     style_dict_dark = {
         "default": """
             QPushButton {
@@ -179,12 +187,12 @@ def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dar
         button.setStyleSheet(style_dict_light.get(style_class, style_dict_light["default"]))
     else:
         button.setStyleSheet(style_dict_dark.get(style_class, style_dict_dark["default"]))
-def create_button(text, tooltip, style_class="default", callback=None):
-    """Create standard styled button"""
+def create_button(text, tooltip, style_class="default", callback=None, color_blindness_type="none"):
+    """Create standard styled button with color blindness support"""
     button = QPushButton(text)
     button.setToolTip(tooltip)
     # Default to dark until refreshed by window on theme application
-    update_button_theme(button, style_class, theme='dark')
+    update_button_theme(button, style_class, theme='dark', color_blindness_type=color_blindness_type)
     
     if callback:
         button.clicked.connect(callback)
@@ -192,16 +200,26 @@ def create_button(text, tooltip, style_class="default", callback=None):
     return button
 
 def create_camera_controls(parent):
-    """Create camera control buttons"""
+    """Create camera control buttons with color blindness support"""
     button_layout = QHBoxLayout()
+    
+    # Get color blindness type from parent if available
+    color_blindness_type = getattr(parent, 'current_profile', None)
+    if color_blindness_type and hasattr(color_blindness_type, 'color_blindness_type'):
+        cb_type = color_blindness_type.color_blindness_type
+    else:
+        cb_type = "none"
     
     # Camera toggle button
     camera_toggle_button = create_button(
         tr.get_text("start"), 
         tr.get_text("start_tooltip"),
         "start",
-        parent.toggle_camera
+        parent.toggle_camera,
+        cb_type
     )
+    # Mark for accent-exclusion so global pink mapping won't affect this button
+    camera_toggle_button.setObjectName("camera_start_button")
     parent.camera_toggle_button = camera_toggle_button
     
     # Screenshot and gallery buttons
@@ -209,7 +227,8 @@ def create_camera_controls(parent):
         tr.get_text("take_screenshot"),
         tr.get_text("snapshot_tooltip"),
         "snapshot",
-        parent.take_screenshot
+        parent.take_screenshot,
+        cb_type
     )
     # Hide when camera is off
     screenshot_button.setVisible(parent.camera_manager.camera_open)
@@ -220,7 +239,8 @@ def create_camera_controls(parent):
         tr.get_text("load_file"),
         tr.get_text("load_file_tooltip"),
         "load_file",
-        parent.load_file
+        parent.load_file,
+        cb_type
     )
     parent.load_file_button = load_file_button
     
@@ -228,8 +248,11 @@ def create_camera_controls(parent):
         tr.get_text("gallery"),
         tr.get_text("gallery_tooltip"),
         "gallery",
-        parent.open_gallery
+        parent.open_gallery,
+        cb_type
     )
+    # Mark gallery button to keep its own accessible color (pink under tritanopia)
+    gallery_button.setObjectName("gallery_button")
     parent.gallery_button = gallery_button
     
     button_layout.addWidget(camera_toggle_button)

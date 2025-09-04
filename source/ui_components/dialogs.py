@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
                            QWidget, QLabel, QCheckBox, QPushButton, QSlider, QGroupBox)
 from PyQt5.QtCore import Qt, QTimer
 from ..translations import translator as tr
+from .buttons import update_button_theme
 
 class AdvancedSettingsDialog(QDialog):
     """Advanced settings dialog - Compatible design with main application"""
@@ -72,6 +73,8 @@ class AdvancedSettingsDialog(QDialog):
                 state['stability_enhancement'] = bool(self.stability_enhancement.isChecked())
             if hasattr(self, 'debug_mode') and self.debug_mode is not None:
                 state['debug_mode'] = bool(self.debug_mode.isChecked())
+            if hasattr(self, 'disable_background_dimming') and self.disable_background_dimming is not None:
+                state['disable_background_dimming'] = bool(self.disable_background_dimming.isChecked())
         except Exception:
             # In case of any unexpected widget errors, return what we have
             pass
@@ -240,6 +243,45 @@ class AdvancedSettingsDialog(QDialog):
         self.green_checkbox.setChecked(self.parent.green_checkbox.isChecked())
         self.blue_checkbox.setChecked(self.parent.blue_checkbox.isChecked())
         self.yellow_checkbox.setChecked(self.parent.yellow_checkbox.isChecked())
+
+        # If none selected, enforce automatic defaults based on current CB type
+        try:
+            if not (self.red_checkbox.isChecked() or self.green_checkbox.isChecked() or self.blue_checkbox.isChecked() or self.yellow_checkbox.isChecked()):
+                cb_type = None
+                try:
+                    if hasattr(self.parent, 'color_blindness_combo') and self.parent.color_blindness_combo is not None:
+                        cb_type = self.parent.color_blindness_combo.currentData()
+                except Exception:
+                    cb_type = 'none'
+                cb_type = (cb_type or 'none').lower()
+                if cb_type in ('protanopia', 'deuteranopia'):
+                    # Select Red + Green
+                    self.red_checkbox.setChecked(True)
+                    self.green_checkbox.setChecked(True)
+                    self.blue_checkbox.setChecked(False)
+                    self.yellow_checkbox.setChecked(False)
+                    # Sync back to parent immediately for consistency
+                    try:
+                        if hasattr(self.parent, '_apply_detect_flags'):
+                            self.parent._apply_detect_flags(True, True, False, False, persist=True)
+                    except Exception:
+                        pass
+                elif cb_type == 'tritanopia':
+                    # Select Blue + Yellow
+                    self.red_checkbox.setChecked(False)
+                    self.green_checkbox.setChecked(False)
+                    self.blue_checkbox.setChecked(True)
+                    self.yellow_checkbox.setChecked(True)
+                    try:
+                        if hasattr(self.parent, '_apply_detect_flags'):
+                            self.parent._apply_detect_flags(False, False, True, True, persist=True)
+                    except Exception:
+                        pass
+                else:
+                    # Leave as-is for 'none' or unknown
+                    pass
+        except Exception:
+            pass
         
         # Main application checkbox style
         if self._get_theme() == 'light':
@@ -506,6 +548,55 @@ class AdvancedSettingsDialog(QDialog):
         
         stability_group.setLayout(stability_layout)
         filtering_layout.addWidget(stability_group)
+
+        # Background dimming group
+        dimming_group = QGroupBox(tr.get_text("background_dimming"))
+        if self._get_theme() == 'light':
+            dimming_group.setStyleSheet("""
+                QGroupBox { color: #222; font-size: 10pt; border: 2px solid #DDD; border-radius: 5px; margin-top: 10px; padding-top: 10px; background-color: #FFFFFF; }
+                QGroupBox::title { subcontrol-origin: margin; padding: 0 5px; color: #1976D2; }
+                QGroupBox:hover { border: 2px solid #1976D2; }
+            """)
+        else:
+            dimming_group.setStyleSheet("""
+                QGroupBox { color: #EEE; font-size: 10pt; border: 2px solid #555; border-radius: 5px; margin-top: 10px; padding-top: 10px; background-color: #444; }
+                QGroupBox::title { subcontrol-origin: margin; padding: 0 5px; color: #2196F3; }
+                QGroupBox:hover { border: 2px solid #2196F3; }
+            """)
+
+        dimming_layout = QVBoxLayout()
+        self.disable_background_dimming = QCheckBox(tr.get_text("disable_background_dimming"))
+        # Initialize from parent flag if available; default False (dimming enabled)
+        parent_flag = getattr(self.parent, 'background_dimming_enabled', True)
+        self.disable_background_dimming.setChecked(not bool(parent_flag))
+        self.disable_background_dimming.setToolTip(tr.get_text("disable_background_dimming_tooltip"))
+        if self._get_theme() == 'light':
+            self.disable_background_dimming.setStyleSheet("""
+                QCheckBox { color: #222; font-size: 10pt; spacing: 8px; padding: 5px; }
+                QCheckBox:hover { color: #1976D2; }
+            """)
+        else:
+            self.disable_background_dimming.setStyleSheet("""
+                QCheckBox { color: #EEE; font-size: 10pt; spacing: 8px; padding: 5px; }
+                QCheckBox:hover { color: #2196F3; }
+            """)
+        dimming_layout.addWidget(self.disable_background_dimming)
+
+        # Help text
+        dimming_desc = QLabel(tr.get_text("background_dimming_explanation"))
+        dimming_desc.setWordWrap(True)
+        if self._get_theme() == 'light':
+            dimming_desc.setStyleSheet("""
+                QLabel { color: #555; font-size: 9pt; padding: 8px; background-color: #F1F3F4; border-radius: 3px; }
+            """)
+        else:
+            dimming_desc.setStyleSheet("""
+                QLabel { color: #BBB; font-size: 9pt; padding: 8px; background-color: #3A3A3A; border-radius: 3px; }
+            """)
+        dimming_layout.addWidget(dimming_desc)
+
+        dimming_group.setLayout(dimming_layout)
+        filtering_layout.addWidget(dimming_group)
         
         filtering_layout.addStretch()
         return filtering_tab
@@ -517,45 +608,36 @@ class AdvancedSettingsDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
-        # Cancel button - Main application style
+        # Cancel button - CB-aware style
         cancel_button = QPushButton(tr.get_text("cancel"))
-        if self._get_theme() == 'light':
-            cancel_button.setStyleSheet("""
-                QPushButton { background-color: #E0E0E0; color: #222; padding: 8px 6px; border-radius: 5px; font-size: 9pt; min-height: 25px; text-align: center; min-width: 80px; border: 1px solid #C7C7C7; }
-                QPushButton:hover { background-color: #EEEEEE; border: 1px solid #1976D2; }
-                QPushButton:pressed { background-color: #D5D5D5; }
-            """)
-        else:
-            cancel_button.setStyleSheet("""
-                QPushButton { background-color: #555; color: white; padding: 8px 6px; border-radius: 5px; font-size: 9pt; min-height: 25px; text-align: center; min-width: 80px; }
-                QPushButton:hover { background-color: #777; border: 1px solid #999; }
-                QPushButton:pressed { background-color: #444; }
-            """)
+        try:
+            theme = getattr(self.parent, 'theme', 'dark') if self.parent else 'dark'
+            cb_type = 'none'
+            if hasattr(self.parent, 'current_profile') and self.parent.current_profile:
+                cb_type = getattr(self.parent.current_profile, 'color_blindness_type', 'none') or 'none'
+            # Use 'stop' class semantics for a clear cancel color, mapped per CB type
+            update_button_theme(cancel_button, 'stop', theme, cb_type)
+            # Keep a reasonable min width similar to previous style
+            cancel_button.setMinimumWidth(80)
+        except Exception:
+            pass
         # Mark as canceled so closeEvent won't auto-save
         cancel_button.clicked.connect(self._on_cancel_clicked)
         button_layout.addWidget(cancel_button)
         
-        # Save button - Main application style (old "OK" button)
+        # Save button - Use unified theming (respects color-blindness mapping)
         save_button = QPushButton(tr.get_text("save"))
-        save_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                padding: 8px 6px;
-                border-radius: 5px;
-                font-size: 9pt;
-                min-height: 25px;
-                text-align: center;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-                border: 2px solid #81C784;
-            }
-            QPushButton:pressed {
-                background-color: #43A047;
-            }
-        """)
+        # Ensure a reasonable min width similar to previous style
+        save_button.setMinimumWidth(80)
+        # Apply style consistent with 'start' (green) class, mapped via accessibility colors
+        theme = getattr(self.parent, 'theme', 'dark') if self.parent else 'dark'
+        cb_type = 'none'
+        try:
+            if hasattr(self.parent, 'current_profile') and self.parent.current_profile:
+                cb_type = getattr(self.parent.current_profile, 'color_blindness_type', 'none') or 'none'
+        except Exception:
+            cb_type = 'none'
+        update_button_theme(save_button, 'start', theme, cb_type)
         save_button.clicked.connect(self.save_settings_and_close)
         button_layout.addWidget(save_button)
         
@@ -624,14 +706,71 @@ class AdvancedSettingsDialog(QDialog):
                     self.parent.settings.setValue("debug_mode_active", self.parent.debug_mode_active)
             except Exception:
                 pass
+        # Background dimming flag
+        if hasattr(self, 'disable_background_dimming'):
+            self.parent.background_dimming_enabled = not self.disable_background_dimming.isChecked()
+            try:
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("background_dimming_enabled", self.parent.background_dimming_enabled)
+            except Exception:
+                pass
         
-        # Set color blindness combo to "Custom Colors" - BLOCKING SIGNALS
-        self.parent.color_blindness_combo.blockSignals(True)  # Temporarily block signals
-        for i in range(self.parent.color_blindness_combo.count()):
-            if self.parent.color_blindness_combo.itemData(i) == "custom":
-                self.parent.color_blindness_combo.setCurrentIndex(i)
-                break
-        self.parent.color_blindness_combo.blockSignals(False)  # Re-enable signals
+        # Decide how to update CB type based on color changes
+        try:
+            initial = getattr(self, '_initial_state', {})
+            current = self._get_current_state()
+            colors_changed = (
+                bool(current.get('red')) != bool(initial.get('red')) or
+                bool(current.get('green')) != bool(initial.get('green')) or
+                bool(current.get('blue')) != bool(initial.get('blue')) or
+                bool(current.get('yellow')) != bool(initial.get('yellow'))
+            )
+        except Exception:
+            colors_changed = False
+
+        if colors_changed:
+            # Map exact color pairs to CB types; otherwise fall back to 'custom'
+            r = bool(current.get('red'))
+            g = bool(current.get('green'))
+            b = bool(current.get('blue'))
+            y = bool(current.get('yellow'))
+
+            target_cb = "custom"
+            try:
+                prev_cb = None
+                if hasattr(self.parent, 'color_blindness_combo') and self.parent.color_blindness_combo is not None:
+                    prev_cb = (self.parent.color_blindness_combo.currentData() or 'none').lower()
+                elif hasattr(self.parent, 'current_profile') and self.parent.current_profile:
+                    prev_cb = (getattr(self.parent.current_profile, 'color_blindness_type', 'none') or 'none').lower()
+            except Exception:
+                prev_cb = 'none'
+
+            if r and g and not b and not y:
+                # Red + Green -> prefer keeping existing RG type; default to protanopia
+                target_cb = prev_cb if prev_cb in ("protanopia", "deuteranopia") else "protanopia"
+            elif b and y and not r and not g:
+                # Blue + Yellow -> Tritanopia
+                target_cb = "tritanopia"
+
+            # Apply target selection: trigger handler for non-custom to persist and update UI
+            try:
+                if hasattr(self.parent, 'color_blindness_combo') and self.parent.color_blindness_combo is not None:
+                    if target_cb == 'custom':
+                        # Avoid reopening Advanced Settings by suppressing signal
+                        self.parent.color_blindness_combo.blockSignals(True)
+                        for i in range(self.parent.color_blindness_combo.count()):
+                            if self.parent.color_blindness_combo.itemData(i) == target_cb:
+                                self.parent.color_blindness_combo.setCurrentIndex(i)
+                                break
+                        self.parent.color_blindness_combo.blockSignals(False)
+                    else:
+                        # Let the change handler run to update profile, buttons, etc.
+                        for i in range(self.parent.color_blindness_combo.count()):
+                            if self.parent.color_blindness_combo.itemData(i) == target_cb:
+                                self.parent.color_blindness_combo.setCurrentIndex(i)
+                                break
+            except Exception:
+                pass
         
         # Auto-save profile when advanced settings change
         if hasattr(self.parent, 'auto_save_profile_on_change'):

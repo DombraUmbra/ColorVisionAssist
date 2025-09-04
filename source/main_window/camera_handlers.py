@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 from ..translations import translator as tr
 from ..ui_components import create_camera_interface
+from ..ui_components.buttons import update_button_theme
 from .camera import show_camera_permission_interface
 
 class CameraHandlers:
@@ -79,24 +80,18 @@ class CameraHandlers:
             # Update "Stop" button appearance
             self.camera_toggle_button.setText(tr.get_text("stop"))
             self.camera_toggle_button.setToolTip(tr.get_text("stop_tooltip"))
-            self.camera_toggle_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #f44336;
-                    color: white;
-                    padding: 8px 6px;
-                    border-radius: 5px;
-                    font-size: 9pt;
-                    min-height: 25px;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #EF5350;
-                    border: 2px solid #E57373;
-                }
-                QPushButton:pressed {
-                    background-color: #E53935;
-                }
-            """)
+            # Apply CB-aware theme for Stop button on first start
+            try:
+                theme = getattr(self, 'theme', 'dark')
+                cb_type = None
+                if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                    cb_type = self.color_blindness_combo.currentData()
+                if not cb_type and hasattr(self, 'current_profile') and self.current_profile is not None:
+                    cb_type = getattr(self.current_profile, 'color_blindness_type', 'none')
+                cb_type = (cb_type or 'none')
+                update_button_theme(self.camera_toggle_button, 'stop', theme, cb_type)
+            except Exception:
+                pass
             # Show screenshot button
             self.screenshot_button.setVisible(True)
         else:
@@ -115,24 +110,18 @@ class CameraHandlers:
             # Update "Start" button appearance
             self.camera_toggle_button.setText(tr.get_text("start"))
             self.camera_toggle_button.setToolTip(tr.get_text("start_tooltip"))
-            self.camera_toggle_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 8px 6px;
-                    border-radius: 5px;
-                    font-size: 9pt;
-                    min-height: 25px;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #66BB6A;
-                    border: 2px solid #81C784;
-                }
-                QPushButton:pressed {
-                    background-color: #43A047;
-                }
-            """)
+            # Apply CB-aware theme for Start button after stopping
+            try:
+                theme = getattr(self, 'theme', 'dark')
+                cb_type = None
+                if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                    cb_type = self.color_blindness_combo.currentData()
+                if not cb_type and hasattr(self, 'current_profile') and self.current_profile is not None:
+                    cb_type = getattr(self.current_profile, 'color_blindness_type', 'none')
+                cb_type = (cb_type or 'none')
+                update_button_theme(self.camera_toggle_button, 'start', theme, cb_type)
+            except Exception:
+                pass
             
             # Hide screenshot button
             self.screenshot_button.setVisible(False)
@@ -179,6 +168,30 @@ class CameraHandlers:
                 'blue': self.blue_checkbox.isChecked(),
                 'yellow': self.yellow_checkbox.isChecked()
             }
+
+            # If all manual selections are off, auto-select based on CB type to keep detection working
+            if not (selected_colors['red'] or selected_colors['green'] or selected_colors['blue'] or selected_colors['yellow']):
+                try:
+                    cb_type_auto = self.color_blindness_combo.currentData() or 'none'
+                except Exception:
+                    cb_type_auto = 'none'
+                if cb_type_auto in ('protanopia', 'deuteranopia'):
+                    selected_colors['red'] = True
+                    selected_colors['green'] = True
+                    # Update UI checkboxes once to reflect the auto-selection
+                    try:
+                        if hasattr(self, '_apply_detect_flags'):
+                            self._apply_detect_flags(True, True, False, False, persist=True)
+                    except Exception:
+                        pass
+                elif cb_type_auto == 'tritanopia':
+                    selected_colors['blue'] = True
+                    selected_colors['yellow'] = True
+                    try:
+                        if hasattr(self, '_apply_detect_flags'):
+                            self._apply_detect_flags(False, False, True, True, persist=True)
+                    except Exception:
+                        pass
             
             # Translated color names (skin tone not included - invisible)
             translated_color_names = {
@@ -202,7 +215,8 @@ class CameraHandlers:
                 self.stability_enhancement_active,
                 color_blindness_type,  # Send color blindness type
                 False,  # mobile_optimization
-                self.debug_mode_active  # Debug mode
+                self.debug_mode_active,  # Debug mode
+                getattr(self, 'background_dimming_enabled', True)
             )
             
             # Convert result to QImage and display

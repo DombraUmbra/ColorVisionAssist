@@ -271,3 +271,138 @@ def create_camera_interface(parent, layout):
     
     start_widget.setLayout(start_layout)
     layout.addWidget(start_widget)
+
+def get_colorblind_friendly_colors(color_blindness_type="none"):
+    """
+    Get color mapping for color blindness accessibility
+    Returns dictionary mapping original colors to accessible alternatives
+    """
+    color_maps = {
+        "none": {
+            # No changes for normal vision
+            "green": "#4CAF50",
+            "red": "#f44336", 
+            "blue": "#2196F3",
+            "orange": "#FF9800",
+            "purple": "#9C27B0"
+        },
+        "protanopia": {  # Red-green color blindness (no red receptors)
+            "green": "#0F2080",   # Green → Dark Blue for contrast
+            "red": "#D8D210",     # Red → Amber/Yellow
+            "blue": "#1880D5",    # Blue stays blue
+            "orange": "#46453F",  # Load file (orange class) → Lighter Yellow
+            "purple": "#80711D"    # Gallery (purple class) → Gold
+        },
+        "deuteranopia": {  # Red-green color blindness (no green receptors)
+            "green": "#0F2080",   # Green → Dark Blue for contrast
+            "red": "#D8D210",     # Red → Amber/Yellow
+            "blue": "#1880D5",    # Blue stays blue
+            "orange": "#46453F",  # Load file (orange class) → Lighter Yellow
+            "purple": "#80711D"    # Gallery (purple class) → Gold
+        },
+        "tritanopia": {  # Blue-yellow color blindness (no blue receptors)
+            "green": "#64B5F6",   # Any green-class button -> Light Blue
+            "red": "#E91E63",     # Any red/orange/purple-class button -> Pink
+            "blue": "#F2C6E6",    # Blue-class -> Light Blue
+            "orange": "#E0E0E0",  # Orange-class -> Light Gray (for neutral look)
+            "purple": "#E91E63"   # Purple-class -> Pink
+        }
+    }
+    
+    return color_maps.get(color_blindness_type, color_maps["none"])
+
+def apply_colorblind_friendly_button_style(button, original_style_class, color_blindness_type="none", theme="dark"):
+    """
+    Apply color blind friendly styling to buttons based on color blindness type
+    """
+    color_map = get_colorblind_friendly_colors(color_blindness_type)
+    
+    # Map original style classes to their base colors
+    style_color_mapping = {
+        "start": "green",
+        "stop": "red", 
+        "snapshot": "blue",
+        "gallery": "purple",
+        "load_file": "orange"
+    }
+    
+    base_color = style_color_mapping.get(original_style_class, "blue")
+    accessible_color = color_map[base_color]
+    
+    # Generate hover and pressed colors (lighter and darker variants)
+    hover_color = adjust_color_brightness(accessible_color, 1.2)
+    pressed_color = adjust_color_brightness(accessible_color, 0.8)
+
+    # Decide readable text color based on background brightness
+    def _contrasting_text_color(bg_hex: str) -> str:
+        try:
+            hx = bg_hex.lstrip('#')
+            if len(hx) != 6:
+                return "#FFFFFF"
+            r = int(hx[0:2], 16)
+            g = int(hx[2:4], 16)
+            b = int(hx[4:6], 16)
+            # Perceived brightness (YIQ approximation)
+            brightness = (299 * r + 587 * g + 114 * b) / 1000
+            return "#222222" if brightness >= 170 else "#FFFFFF"
+        except Exception:
+            return "#FFFFFF"
+
+    text_color = _contrasting_text_color(accessible_color)
+    
+    if theme == "dark":
+        style = f"""
+            QPushButton {{
+                background-color: {accessible_color};
+                color: {text_color};
+                padding: 8px 6px;
+                border-radius: 5px;
+                font-size: 9pt;
+                min-height: 25px;
+                text-align: center;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+                border: 2px solid {adjust_color_brightness(accessible_color, 1.4)};
+            }}
+            QPushButton:pressed {{
+                background-color: {pressed_color};
+            }}
+        """
+    else:  # light theme
+        style = f"""
+            QPushButton {{
+                background-color: {accessible_color};
+                color: {text_color};
+                padding: 8px 6px;
+                border-radius: 5px;
+                font-size: 9pt;
+                min-height: 25px;
+                text-align: center;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+            }}
+            QPushButton:pressed {{
+                background-color: {pressed_color};
+            }}
+        """
+    
+    button.setStyleSheet(style)
+
+def adjust_color_brightness(hex_color, factor):
+    """
+    Adjust the brightness of a hex color by a factor
+    factor > 1 makes it brighter, factor < 1 makes it darker
+    """
+    # Remove # if present
+    hex_color = hex_color.lstrip('#')
+    
+    # Convert hex to RGB
+    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    
+    # Adjust brightness
+    adjusted_rgb = tuple(min(255, max(0, int(component * factor))) for component in rgb)
+    
+    # Convert back to hex
+    return f"#{adjusted_rgb[0]:02x}{adjusted_rgb[1]:02x}{adjusted_rgb[2]:02x}"
