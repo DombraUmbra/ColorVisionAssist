@@ -4,7 +4,7 @@ Contains all camera-related operations and event handlers
 """
 
 import os
-from PyQt5.QtWidgets import QApplication, QLabel
+from PyQt5.QtWidgets import QApplication, QLabel, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 from ..translations import translator as tr
@@ -218,22 +218,40 @@ class CameraHandlers:
                 self.debug_mode_active,  # Debug mode
                 getattr(self, 'background_dimming_enabled', True)
             )
+            # Persist processed frame with overlays for screenshot feature
+            try:
+                if hasattr(self, 'camera_manager') and self.camera_manager is not None:
+                    self.camera_manager.current_frame_processed = combined_result.copy()
+            except Exception:
+                pass
             
-            # Convert result to QImage and display
+            # Convert result to QImage once
             h, w, c = combined_result.shape
             bytes_per_line = 3 * w
             qImg = QImage(combined_result.data, w, h, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
-            
-            # Clear all existing widgets
-            for i in reversed(range(self.camera_feed_layout.count())): 
-                self.camera_feed_layout.itemAt(i).widget().setParent(None)
-                
-            # Create and add image label
-            image_label = QLabel()
-            image_label.setPixmap(QPixmap.fromImage(qImg).scaled(
-                self.camera_feed_container.width() - 40,  # Account for margins
-                self.camera_feed_container.height() - 40, 
-                Qt.KeepAspectRatio
-            ))
-            image_label.setAlignment(Qt.AlignCenter)
-            self.camera_feed_layout.addWidget(image_label)
+
+            # Ensure a persistent image label exists (avoid recreating per frame)
+            if not hasattr(self, '_camera_image_label') or self._camera_image_label is None:
+                # Clear permission/start widgets once when first frame arrives
+                for i in reversed(range(self.camera_feed_layout.count())):
+                    item = self.camera_feed_layout.itemAt(i)
+                    widget = item.widget() if item else None
+                    if widget is not None:
+                        widget.setParent(None)
+                self._camera_image_label = QLabel()
+                self._camera_image_label.setAlignment(Qt.AlignCenter)
+                # Allow window/container to resize freely
+                self._camera_image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                self._camera_image_label.setMinimumSize(1, 1)
+                self.camera_feed_layout.addWidget(self._camera_image_label)
+
+            # Scale pixmap to current container size (accounting for margins)
+            target_w = max(1, self.camera_feed_container.width() - 40)
+            target_h = max(1, self.camera_feed_container.height() - 40)
+            scaled = QPixmap.fromImage(qImg).scaled(
+                target_w,
+                target_h,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self._camera_image_label.setPixmap(scaled)

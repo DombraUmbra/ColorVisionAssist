@@ -34,19 +34,20 @@ def extract_date_from_filename(file_path):
     """
     filename = os.path.basename(file_path)
     
-    # Try to extract date from new format filename: screenshot_dd-mm-yyyy_hh-mm-ss_001.png
+    # Try to extract date from filename
     if filename.startswith("screenshot_") and filename.endswith(".png"):
         parts = filename[11:-4].split("_")  # Remove "screenshot_" prefix and ".png" suffix
         if len(parts) >= 2:  # At least date and time parts
             try:
                 date_part = parts[0]  # dd-mm-yyyy
-                time_part = parts[1]  # hh-mm-ss
+                time_part = parts[1]  # hh-mm-ss or hh-mm-ss-SSS
                 
                 # Parse and reformat to dd/mm/yyyy
                 day, month, year = map(int, date_part.split("-"))
-                hour, minute, second = map(int, time_part.split("-"))
-                
-                return f"{day:02d}/{month:02d}/{year}", f"{hour:02d}:{minute:02d}"
+                # Support optional milliseconds
+                tp = time_part.split("-")
+                hour, minute, second = map(int, tp[:3])
+                return f"{day:02d}/{month:02d}/{year}", f"{hour:02d}:{minute:02d}:{second:02d}"
             except (ValueError, IndexError):
                 pass  # Fall back to file modification time
     
@@ -67,29 +68,8 @@ def extract_number_from_filename(filename):
     For new format: extracts the sequence number
     For old format: extracts the main number
     """
-    if filename.startswith("screenshot_") and filename.endswith(".png"):
-        parts = filename[11:-4].split("_")  # Remove "screenshot_" prefix and ".png" suffix
-        
-        # New format: screenshot_dd-mm-yyyy_hh-mm-ss_001.png
-        if len(parts) >= 3:
-            try:
-                return int(parts[-1])  # Last part is the sequence number
-            except ValueError:
-                pass
-        
-        # Old format: screenshot_123.png
-        if len(parts) == 1:
-            try:
-                return int(parts[0])
-            except ValueError:
-                pass
-    
-    # Fallback: extract any numbers from filename
-    numbers = ''.join(filter(str.isdigit, filename))
-    try:
-        return int(numbers) if numbers else 0
-    except ValueError:
-        return 0
+    # Numbering removed in new format; return 0 so captions can omit numbering
+    return 0
 
 
 def date_sort_key(file_path):
@@ -180,15 +160,27 @@ class ScreenshotGallery(QDialog):
 
         self.sort_combo = HiddenCurrentCombo()
         self.sort_combo.setObjectName("sortCombo")
-        self.sort_combo.addItem(tr.get_text("sort_by_name_asc"), "name_asc")
-        self.sort_combo.addItem(tr.get_text("sort_by_name_desc"), "name_desc")
         self.sort_combo.addItem(tr.get_text("sort_by_date_asc"), "date_asc")
         self.sort_combo.addItem(tr.get_text("sort_by_date_desc"), "date_desc")
-        self.sort_combo.currentTextChanged.connect(self.sort_screenshots)
         try:
             _apply_combo_theme(self.sort_combo, self)
         except Exception:
             pass
+
+        # Default selection: newest first
+        try:
+            self.sort_combo.blockSignals(True)
+            for i in range(self.sort_combo.count()):
+                if self.sort_combo.itemData(i) == "date_desc":
+                    self.sort_combo.setCurrentIndex(i)
+                    break
+        finally:
+            try:
+                self.sort_combo.blockSignals(False)
+            except Exception:
+                pass
+        # Connect after initial selection to avoid early sort
+        self.sort_combo.currentTextChanged.connect(self.sort_screenshots)
 
         info_sort_layout.addWidget(self.info_label)
         info_sort_layout.addStretch()
@@ -962,15 +954,15 @@ class ScreenshotGallery(QDialog):
         """Recreate sort combo box with proper theme"""
         if not hasattr(self, 'sort_combo') or not hasattr(self, 'header_widget'):
             return
-            
-        # Get current selection before recreating
-        current_data = self.sort_combo.currentData() if self.sort_combo.currentIndex() >= 0 else "name_asc"
+        
+        # Get current selection before recreating; default to date_desc
+        current_data = self.sort_combo.currentData() if self.sort_combo.currentIndex() >= 0 else "date_desc"
         
         # Get layout
         layout = self.header_widget.layout()
         if not layout:
             return
-            
+        
         # Remove old combo
         layout.removeWidget(self.sort_combo)
         self.sort_combo.deleteLater()
@@ -978,8 +970,6 @@ class ScreenshotGallery(QDialog):
         # Create new combo
         self.sort_combo = HiddenCurrentCombo()
         self.sort_combo.setObjectName("sortCombo")
-        self.sort_combo.addItem(tr.get_text("sort_by_name_asc"), "name_asc")
-        self.sort_combo.addItem(tr.get_text("sort_by_name_desc"), "name_desc")
         self.sort_combo.addItem(tr.get_text("sort_by_date_asc"), "date_asc")
         self.sort_combo.addItem(tr.get_text("sort_by_date_desc"), "date_desc")
         self.sort_combo.currentTextChanged.connect(self.sort_screenshots)
@@ -995,6 +985,12 @@ class ScreenshotGallery(QDialog):
             if self.sort_combo.itemData(i) == current_data:
                 self.sort_combo.setCurrentIndex(i)
                 break
+        else:
+            # Fallback to newest first
+            for i in range(self.sort_combo.count()):
+                if self.sort_combo.itemData(i) == "date_desc":
+                    self.sort_combo.setCurrentIndex(i)
+                    break
         
         # Add back to layout
         layout.addWidget(self.sort_combo)
@@ -1835,20 +1831,15 @@ class ScreenshotGallery(QDialog):
         self.delete_button.setText(tr.get_text("delete_selected"))
         self.export_button.setText(tr.get_text("save"))
         
-        # Update sort combo items
-        current_selection = self.sort_combo.currentData()
-        self.sort_combo.clear()
-        self.sort_combo.addItem(tr.get_text("sort_by_name_asc"), "name_asc")
-        self.sort_combo.addItem(tr.get_text("sort_by_name_desc"), "name_desc")
-        self.sort_combo.addItem(tr.get_text("sort_by_date_asc"), "date_asc")
-        self.sort_combo.addItem(tr.get_text("sort_by_date_desc"), "date_desc")
-        
-        # Restore previous selection
-        if current_selection:
-            for i in range(self.sort_combo.count()):
-                if self.sort_combo.itemData(i) == current_selection:
-                    self.sort_combo.setCurrentIndex(i)
-                    break
+        # Recreate sort combo to refresh translated texts and re-apply current theme styling
+        try:
+            self._recreate_sort_combo(self.theme)
+        except Exception:
+            # Fallback: try applying combo theme directly if recreation fails
+            try:
+                _apply_combo_theme(self.sort_combo, self)
+            except Exception:
+                pass
 
     def refresh_button_themes(self):
         """Refresh button styles to reflect current color blindness settings and theme."""
@@ -1870,11 +1861,29 @@ class ScreenshotGallery(QDialog):
             from PyQt5.QtCore import QEvent
             et = event.type()
             if et == QEvent.LanguageChange:
+                # Ensure we use the latest theme from parent before rebuilding widgets
+                try:
+                    parent = self.parent()
+                    parent_theme = getattr(parent, 'theme', None)
+                    if parent_theme:
+                        self.theme = parent_theme
+                except Exception:
+                    pass
                 # Update all localized texts
                 self.update_ui_language()
                 # Re-apply sort label/combo theme after text updates
                 try:
                     self._apply_sort_styles(getattr(self, 'theme', 'dark'))
+                    # Force a hard restyle on the sort combo to drop any cached palette from previous theme
+                    try:
+                        sc = getattr(self, 'sort_combo', None)
+                        if sc and sc.style():
+                            sc.style().unpolish(sc)
+                            sc.style().polish(sc)
+                            sc.update()
+                            sc.repaint()
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 # Refresh gallery to update counts with localized prefix
@@ -2240,11 +2249,10 @@ class ScreenshotGallery(QDialog):
                 thumb_label.setStyleSheet("margin: 0px; background: transparent; padding: 0px;")
             thumb_label.setFixedSize(label_size)
 
-            # Caption with filename index and date in dd/mm/yyyy format
+            # Caption with date (and time) only (numbering removed)
             base = os.path.basename(file_path)
-            num = extract_number_from_filename(base)
             date_str, time_str = extract_date_from_filename(file_path)
-            caption = QLabel(f"#{num} • {date_str} {time_str}")
+            caption = QLabel(f"{date_str} {time_str}")
             caption.setAlignment(Qt.AlignCenter)
             
             # Larger font size for enhanced readability
@@ -3030,35 +3038,60 @@ class ScreenshotGallery(QDialog):
             box.setDefaultButton(yes_btn)
         except Exception:
             pass
-        # Style buttons inline (theme-aware): Yes green, No red
+        # Style Yes/No buttons with color-blindness-aware colors
         try:
-            theme = getattr(self, 'theme', 'dark').lower()
-            if theme == 'light':
-                yes_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #34C759; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #248A3D; }
-                    """
-                )
-                no_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF3B30; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #D70015; }
-                    """
-                )
+            # Resolve current color blindness type from parent context
+            cb_type = 'none'
+            try:
+                parent = self.parent()
+                if parent is not None:
+                    if hasattr(parent, 'color_blindness_combo') and parent.color_blindness_combo is not None:
+                        cb_type = parent.color_blindness_combo.currentData() or 'none'
+                    elif hasattr(parent, 'current_profile') and getattr(parent.current_profile, 'color_blindness_type', None):
+                        cb_type = parent.current_profile.color_blindness_type or 'none'
+            except Exception:
+                cb_type = 'none'
+
+            theme_mode = getattr(self, 'theme', 'dark').lower()
+            color_map = get_colorblind_friendly_colors(cb_type)
+            yes_bg = color_map.get('green', '#32D74B')
+            no_bg = color_map.get('red', '#FF453A')
+
+            # Simple contrasting text color based on brightness
+            def _text_for(bg_hex: str) -> str:
+                try:
+                    hx = bg_hex.lstrip('#')
+                    r = int(hx[0:2], 16)
+                    g = int(hx[2:4], 16)
+                    b = int(hx[4:6], 16)
+                    brightness = (299 * r + 587 * g + 114 * b) / 1000
+                    return '#222222' if brightness >= 170 else '#FFFFFF'
+                except Exception:
+                    return '#FFFFFF'
+
+            # Hover color: darker on light theme, lighter on dark theme
+            if theme_mode == 'light':
+                yes_hover = adjust_color_brightness(yes_bg, 0.85)
+                no_hover = adjust_color_brightness(no_bg, 0.85)
             else:
-                yes_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #32D74B; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #64E478; }
-                    """
-                )
-                no_btn.setStyleSheet(
-                    """
-                    QPushButton { background-color: #FF453A; color: white; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }
-                    QPushButton:hover { background-color: #FF6961; }
-                    """
-                )
+                yes_hover = adjust_color_brightness(yes_bg, 1.2)
+                no_hover = adjust_color_brightness(no_bg, 1.2)
+
+            yes_text = _text_for(yes_bg)
+            no_text = _text_for(no_bg)
+
+            yes_btn.setStyleSheet(
+                f"""
+                QPushButton {{ background-color: {yes_bg}; color: {yes_text}; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }}
+                QPushButton:hover {{ background-color: {yes_hover}; }}
+                """
+            )
+            no_btn.setStyleSheet(
+                f"""
+                QPushButton {{ background-color: {no_bg}; color: {no_text}; border: none; border-radius: 4px; padding: 6px 10px; font-weight: bold; }}
+                QPushButton:hover {{ background-color: {no_hover}; }}
+                """
+            )
         except Exception:
             pass
         
@@ -3329,18 +3362,18 @@ class ScreenshotGallery(QDialog):
         """Apply sorting based on current combo box selection"""
         current_data = self.sort_combo.currentData()
         
-        if current_data == "name_asc":
-            # Sort by filename A-Z with natural numeric ordering
-            self.screenshots.sort(key=lambda x: natural_sort_key(os.path.basename(x)))
-        elif current_data == "name_desc":
-            # Sort by filename Z-A with natural numeric ordering
-            self.screenshots.sort(key=lambda x: natural_sort_key(os.path.basename(x)), reverse=True)
-        elif current_data == "date_asc":
+        if current_data == "date_asc":
             # Sort by date oldest first (using enhanced date extraction)
             self.screenshots.sort(key=date_sort_key)
         elif current_data == "date_desc":
             # Sort by date newest first (default, using enhanced date extraction)
             self.screenshots.sort(key=date_sort_key, reverse=True)
+        else:
+            # Fallback to newest first
+            try:
+                self.screenshots.sort(key=date_sort_key, reverse=True)
+            except Exception:
+                pass
     
     def refresh_display(self):
         """Refresh the display of thumbnails without reloading from disk"""

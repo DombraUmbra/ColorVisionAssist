@@ -513,9 +513,19 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         """Handle window resize events to update responsive UI elements"""
         super().resizeEvent(event)
         
-        # Update camera interface with new responsive sizes if camera is not running
-        if not self.camera_manager.camera_open:
-            # Recreate camera interface with new responsive sizing
+        # Update camera view sizing
+        if self.camera_manager.camera_open:
+            # When camera is running, rescale the existing image label content
+            try:
+                if hasattr(self, '_camera_image_label') and self._camera_image_label is not None and self._camera_image_label.pixmap() is not None:
+                    pm = self._camera_image_label.pixmap()
+                    target_w = max(1, self.camera_feed_container.width() - 40)
+                    target_h = max(1, self.camera_feed_container.height() - 40)
+                    self._camera_image_label.setPixmap(pm.scaled(target_w, target_h, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            except Exception:
+                pass
+        else:
+            # Recreate camera interface with new responsive sizing when not running
             from ..ui_components import create_camera_interface
             create_camera_interface(self, self.camera_feed_layout)
         

@@ -23,6 +23,8 @@ class CameraManager:
         self.camera_open = False
         self.camera = None
         self.current_frame = None
+        # Last processed frame including overlays (labels/frames); used for screenshots
+        self.current_frame_processed = None
     
     def is_camera_active(self):
         """Check if camera is active"""
@@ -46,6 +48,7 @@ class CameraManager:
             self.camera.release()
             self.camera_open = False
             self.current_frame = None
+            self.current_frame_processed = None
             return True
         return False
     
@@ -71,46 +74,46 @@ class CameraManager:
         Returns:
             (successful, filename or error message)
         """
-        if not hasattr(self, 'current_frame') or self.current_frame is None:
+        # Prefer processed frame (with overlays). Fallback to raw frame.
+        frame_to_save = None
+        if hasattr(self, 'current_frame_processed') and self.current_frame_processed is not None:
+            frame_to_save = self.current_frame_processed
+        elif hasattr(self, 'current_frame') and self.current_frame is not None:
+            frame_to_save = self.current_frame
+        if frame_to_save is None:
             return False, "No frame available"
-        
+
         # Ensure screenshots directory exists - use repository root (parent of 'source' folder)
         # __file__ is .../source/main_window/camera.py -> go up 3 levels to reach repo root
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         screenshot_dir = os.path.join(root_dir, "screenshots")
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir)
-        
+
         # Migrate old screenshot files to new format if needed
         self._migrate_old_screenshots(screenshot_dir)
-        
-        # Generate filename with current date and time in dd/mm/yyyy format
+
+        # Generate filename with current date and time; include milliseconds to ensure uniqueness
         now = datetime.now()
-        date_str = now.strftime("%d-%m-%Y")  # Using dash for filename compatibility
-        time_str = now.strftime("%H-%M-%S")  # Using dash for filename compatibility
-        
-        # Find next number for today
-        today_files = glob.glob(os.path.join(screenshot_dir, f"screenshot_{date_str}_*.png"))
-        next_number = 1
-        if today_files:
-            # Extract numbers from today's files and find the maximum
-            current_numbers = []
-            for file_name in today_files:
-                try:
-                    base_file_name = os.path.basename(file_name)
-                    # Extract number from filename like "screenshot_31-12-2024_15-30-45_001.png"
-                    parts = base_file_name.replace(".png", "").split("_")
-                    if len(parts) >= 4:  # screenshot_date_time_number
-                        number = int(parts[-1])
-                        current_numbers.append(number)
-                except (ValueError, IndexError):
-                    pass
-            if current_numbers:
-                next_number = max(current_numbers) + 1
-                
-        # Create filename: screenshot_dd-mm-yyyy_hh-mm-ss_001.png
-        file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}_{next_number:03d}.png")
-        cv2.imwrite(file_name, self.current_frame)
+        date_str = now.strftime("%d-%m-%Y")
+        time_str = now.strftime("%H-%M-%S")
+        ms = int(now.microsecond / 1000)
+        # New format: screenshot_dd-mm-yyyy_hh-mm-ss-SSS.png
+        file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}-{ms:03d}.png")
+
+        # Avoid rare collisions by bumping milliseconds if file exists
+        try:
+            bump = 0
+            while os.path.exists(file_name) and bump < 1000:
+                bump += 1
+                file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}-{(ms + bump) % 1000:03d}.png")
+        except Exception:
+            pass
+
+        try:
+            cv2.imwrite(file_name, frame_to_save)
+        except Exception as e:
+            return False, str(e)
         return True, file_name
     
     def _migrate_old_screenshots(self, screenshot_dir):
@@ -132,43 +135,32 @@ class CameraManager:
                 except ValueError:
                     # If conversion fails, it's already new format or different format
                     continue
-        
+
         # Migrate old files
         for old_file in old_files:
             try:
                 # Get file modification time
                 mod_time = os.path.getmtime(old_file)
                 file_date = datetime.fromtimestamp(mod_time)
-                
-                # Create new filename with file's modification date
+
+                # Create new filename with file's modification date (no numbering, include ms)
                 date_str = file_date.strftime("%d-%m-%Y")
                 time_str = file_date.strftime("%H-%M-%S")
-                
-                # Find next available number for that date
-                existing_files = glob.glob(os.path.join(screenshot_dir, f"screenshot_{date_str}_*.png"))
-                next_number = 1
-                if existing_files:
-                    current_numbers = []
-                    for existing_file in existing_files:
-                        try:
-                            base_name = os.path.basename(existing_file)
-                            parts = base_name.replace(".png", "").split("_")
-                            if len(parts) >= 4:
-                                number = int(parts[-1])
-                                current_numbers.append(number)
-                        except (ValueError, IndexError):
-                            pass
-                    if current_numbers:
-                        next_number = max(current_numbers) + 1
-                
-                # Create new filename
-                new_filename = f"screenshot_{date_str}_{time_str}_{next_number:03d}.png"
+                ms = int(file_date.microsecond / 1000)
+                new_filename = f"screenshot_{date_str}_{time_str}-{ms:03d}.png"
                 new_path = os.path.join(screenshot_dir, new_filename)
-                
+
+                # Avoid collision: bump ms if file already exists
+                bump = 0
+                while os.path.exists(new_path) and bump < 1000:
+                    bump += 1
+                    new_filename = f"screenshot_{date_str}_{time_str}-{(ms + bump) % 1000:03d}.png"
+                    new_path = os.path.join(screenshot_dir, new_filename)
+
                 # Rename the file
                 os.rename(old_file, new_path)
                 print(f"Migrated {os.path.basename(old_file)} to {new_filename}")
-                
+
             except Exception as e:
                 print(f"Failed to migrate {old_file}: {e}")
                 # Continue with other files if one fails

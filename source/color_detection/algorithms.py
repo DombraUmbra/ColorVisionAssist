@@ -211,20 +211,70 @@ class ColorDetectionAlgorithms:
             
             # Calculate center position
             center_x = x + w // 2
-            center_y = y + h // 2
-            
-            # Get text size
-            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-            
-            # Place text at the top center of the object
-            text_x = center_x - text_size[0] // 2
-            text_y = max(y - 10, 20)  # At least 20 pixels above
-            
-            # Draw color blindness friendly text
+
+            # Base text size estimate; we'll override final box with font_size below
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+
+            # Stabilized label anchor from detector (top-center). If not present, use current.
+            anchor = color_info.get('label_anchor', (center_x, max(y - 10, 20)))
+
+            # Collision avoidance: aim to place label as close as possible to bbox without overlap
+            h_img, w_img = result.shape[:2]
+            # Smaller margin to keep label compact and closer to the object
+            margin = 4
+
+            # Use stabilized font size from detector to prevent jitter on large, partial detections
+            # Even smaller default font and thinner outline for less bulk
+            font_size = int(color_info.get('label_font_size', 13))
+            outline_thickness = int(color_info.get('label_outline', max(1, font_size // 10)))
+
+            # Now that we have font size, estimate text rectangle and choose a position near bbox
+            # Approximate text box based on font_size to better reflect PIL rendering
+            # Width scales ~ linearly with font size vs. OpenCV's estimate
+            scale = max(0.5, font_size / 16.0)
+            text_w = max(1, int(text_size[0] * scale))
+            text_h = max(1, int(font_size * 1.15))
+
+            def _rect_intersect(ax, ay, aw, ah, bx, by, bw, bh):
+                return not (ax + aw <= bx or bx + bw <= ax or ay + ah <= by or by + bh <= ay)
+
+            def _clamp_xy(tx, ty):
+                tx = max(0, min(w_img - text_w, tx))
+                ty = max(0, min(h_img - text_h, ty))
+                return tx, ty
+
+            # Candidate positions, near the bbox first
+            cx = int(x + w/2 - text_w/2)
+            candidates = [
+                # Above center
+                (cx, int(y - text_h - margin)),
+                # Below center
+                (cx, int(y + h + margin)),
+                # Right middle
+                (int(x + w + margin), int(y + h/2 - text_h/2)),
+                # Left middle
+                (int(x - margin - text_w), int(y + h/2 - text_h/2)),
+            ]
+
+            placed = False
+            for cx, cy in candidates:
+                cx, cy = _clamp_xy(cx, cy)
+                if not _rect_intersect(cx, cy, text_w, text_h, x - margin, y - margin, w + 2*margin, h + 2*margin):
+                    text_x, text_y = cx, cy
+                    placed = True
+                    break
+
+            if not placed:
+                # Fallback to (possibly far) anchor, but clamp on screen
+                ax = int(anchor[0] - text_w // 2)
+                ay = int(anchor[1])
+                text_x, text_y = _clamp_xy(ax, ay)
+
+            # Draw color blindness friendly text with stroke
             result = draw_text_with_utf8(
                 result, text, (text_x, text_y),
-                text_color=text_color, font_size=14,
-                outline_color=(0, 0, 0), outline_thickness=2
+                text_color=text_color, font_size=font_size,
+                outline_color=(0, 0, 0), outline_thickness=outline_thickness
             )
         
         return result

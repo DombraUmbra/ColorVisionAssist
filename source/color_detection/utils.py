@@ -23,7 +23,6 @@ def draw_text_with_utf8(image, text, position, text_color=(255, 255, 255), font_
     # Convert the image from OpenCV BGR format to RGB for PIL
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(image_rgb)
-    draw = ImageDraw.Draw(pil_image)
     
     # Convert BGR colors to RGB for PIL
     # OpenCV uses BGR format, PIL uses RGB format
@@ -46,17 +45,24 @@ def draw_text_with_utf8(image, text, position, text_color=(255, 255, 255), font_
     except IOError:
         font = ImageFont.load_default()
     
-    # Draw text with stroke (outline)
-    x, y = position
-    # Draw stroke (outline) using RGB colors
-    draw.text((x-outline_thickness, y-outline_thickness), text, font=font, fill=outline_color_rgb)
-    draw.text((x+outline_thickness, y-outline_thickness), text, font=font, fill=outline_color_rgb)
-    draw.text((x-outline_thickness, y+outline_thickness), text, font=font, fill=outline_color_rgb)
-    draw.text((x+outline_thickness, y+outline_thickness), text, font=font, fill=outline_color_rgb)
-    
-    # Draw the main text using RGB color
-    draw.text(position, text, font=font, fill=text_color_rgb)
+    # Render text on a separate transparent layer using PIL's native stroke support
+    # This produces crisper edges than manual multi-offset drawing
+    overlay = Image.new("RGBA", pil_image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    # Ensure integer coordinates for consistent rasterization
+    x, y = int(position[0]), int(position[1])
+
+    # Draw text with stroke directly
+    try:
+        draw.text((x, y), text, font=font, fill=text_color_rgb + (255,), stroke_width=max(1, int(outline_thickness)), stroke_fill=outline_color_rgb + (255,))
+    except TypeError:
+        # Older Pillow without RGBA fill support – fallback to RGB (still crisp with stroke)
+        draw.text((x, y), text, font=font, fill=text_color_rgb, stroke_width=max(1, int(outline_thickness)), stroke_fill=outline_color_rgb)
+
+    # Composite overlay onto the original image
+    pil_image = Image.alpha_composite(pil_image.convert("RGBA"), overlay)
     
     # Convert back to OpenCV format (BGR)
-    text_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    text_image = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
     return text_image
