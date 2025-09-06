@@ -53,12 +53,24 @@ class CameraHandlers:
         self.status_bar.showMessage(tr.get_text("camera_permission_denied"))
         # Return to start message
         create_camera_interface(self, self.camera_feed_layout)
+        # Clear analyzed file view state if any
+        try:
+            self._file_loaded_view_active = False
+            self._loaded_fit_helper = None
+        except Exception:
+            pass
 
     def camera_startup_process(self):
         """Start camera after permission is granted"""
         # Clear all widgets in camera feed layout
         for i in reversed(range(self.camera_feed_layout.count())): 
             self.camera_feed_layout.itemAt(i).widget().setParent(None)
+        # Clear analyzed file view state if any
+        try:
+            self._file_loaded_view_active = False
+            self._loaded_fit_helper = None
+        except Exception:
+            pass
             
         # Show startup message
         starting_label = QLabel(tr.get_text("camera_initializing"))
@@ -104,6 +116,12 @@ class CameraHandlers:
             self.timer.stop()
             # Return to start message
             create_camera_interface(self, self.camera_feed_layout)
+            # Clear analyzed file view state if any
+            try:
+                self._file_loaded_view_active = False
+                self._loaded_fit_helper = None
+            except Exception:
+                pass
             
             self.status_bar.showMessage(tr.get_text("camera_stopped"))
             

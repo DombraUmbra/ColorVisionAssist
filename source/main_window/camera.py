@@ -115,6 +115,49 @@ class CameraManager:
         except Exception as e:
             return False, str(e)
         return True, file_name
+
+    def save_image_to_gallery(self, image):
+        """Save a provided BGR image to the screenshots folder using the app's naming scheme.
+
+        Args:
+            image: numpy ndarray (BGR) to save.
+
+        Returns:
+            (successful: bool, path_or_error: str)
+        """
+        if image is None:
+            return False, "No image provided"
+
+        # Ensure screenshots directory exists - use repository root (parent of 'source' folder)
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        screenshot_dir = os.path.join(root_dir, "screenshots")
+        if not os.path.exists(screenshot_dir):
+            os.makedirs(screenshot_dir)
+
+        # Migrate old screenshots if needed
+        self._migrate_old_screenshots(screenshot_dir)
+
+        # Generate filename with current date and time; include milliseconds to ensure uniqueness
+        now = datetime.now()
+        date_str = now.strftime("%d-%m-%Y")
+        time_str = now.strftime("%H-%M-%S")
+        ms = int(now.microsecond / 1000)
+        file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}-{ms:03d}.png")
+
+        # Avoid rare collisions by bumping milliseconds if file exists
+        try:
+            bump = 0
+            while os.path.exists(file_name) and bump < 1000:
+                bump += 1
+                file_name = os.path.join(screenshot_dir, f"screenshot_{date_str}_{time_str}-{(ms + bump) % 1000:03d}.png")
+        except Exception:
+            pass
+
+        try:
+            cv2.imwrite(file_name, image)
+        except Exception as e:
+            return False, str(e)
+        return True, file_name
     
     def _migrate_old_screenshots(self, screenshot_dir):
         """

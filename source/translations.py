@@ -139,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Whisper of Colors\nVersion 1.5\n\nRemove the barriers, reveal your color.",
-                "tr": "Renklerin Fısıltısı\nSürüm 1.5\n\nSınırları kaldır, rengini belli et."
+                "en": "Whisper of Colors\nVersion 1.6\n\nRemove the barriers, reveal your color.",
+                "tr": "Renklerin Fısıltısı\nSürüm 1.6\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery
@@ -321,6 +321,10 @@ class Translations:
             "gallery_tooltip": {
                 "en": "View your saved snapshots",
                 "tr": "Kayıtlı ekran görüntülerinizi görüntüleyin"
+            },
+            "save_to_gallery": {
+                "en": "Save to Gallery",
+                "tr": "Galeriye Kaydet"
             },
             "load_file": {
                 "en": "Upload Photo",

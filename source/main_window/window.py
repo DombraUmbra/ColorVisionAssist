@@ -525,9 +525,19 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
             except Exception:
                 pass
         else:
-            # Recreate camera interface with new responsive sizing when not running
-            from ..ui_components import create_camera_interface
-            create_camera_interface(self, self.camera_feed_layout)
+            # If an analyzed file view is active, preserve and refit it on resize instead of recreating the camera interface
+            try:
+                if getattr(self, '_file_loaded_view_active', False):
+                    helper = getattr(self, '_loaded_fit_helper', None)
+                    if helper is not None and hasattr(helper, '_apply'):
+                        helper._apply()
+                else:
+                    # Recreate camera interface with new responsive sizing only when no analyzed image is shown
+                    from ..ui_components import create_camera_interface
+                    create_camera_interface(self, self.camera_feed_layout)
+            except Exception:
+                # Fallback: do not disrupt current content if any error occurs
+                pass
         
         # Update any existing camera permission interfaces
         self._update_camera_permission_interface_theme()
@@ -695,7 +705,7 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         self.setup_settings_panel()
         
         # Update camera interface if not running
-        if not self.camera_manager.camera_open:
+        if not self.camera_manager.camera_open and not getattr(self, '_file_loaded_view_active', False):
             from ..ui_components import create_camera_interface
             create_camera_interface(self, self.camera_feed_layout)
     

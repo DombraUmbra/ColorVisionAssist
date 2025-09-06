@@ -162,8 +162,8 @@ class UISetup:
             self.about_label.setStyleSheet("QLabel { font-size: 9pt; line-height: 1.4; padding: 8px; color: #CCC; }")
 
         # Update camera interface if not currently running
-        if not self.camera_manager.camera_open:
-            # Recreate camera interface with updated theme
+        if not self.camera_manager.camera_open and not getattr(self, '_file_loaded_view_active', False):
+            # Recreate camera interface with updated theme only when no analyzed image is shown
             create_camera_interface(self, self.camera_feed_layout)
         
         # Update any existing camera permission interface 
@@ -398,7 +398,7 @@ class UISetup:
         self.permission_status_label.setText(f"{tr.get_text('current_permission_status')}: {permission_status_text}")
         
         # Update camera interface if camera is not active
-        if not self.camera_manager.camera_open:
+        if not self.camera_manager.camera_open and not getattr(self, '_file_loaded_view_active', False):
             create_camera_interface(self, self.camera_feed_layout)
 
         # Re-apply theme-specific component styles after text changes

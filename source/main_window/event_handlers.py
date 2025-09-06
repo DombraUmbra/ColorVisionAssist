@@ -160,6 +160,31 @@ class EventHandlers:
                 'blue': self.blue_checkbox.isChecked(),
                 'yellow': self.yellow_checkbox.isChecked()
             }
+
+            # If no manual colors are selected yet (common on first app start before profile applies),
+            # auto-select by color blindness type to avoid empty detection, mirroring camera live logic.
+            if not (selected_colors['red'] or selected_colors['green'] or selected_colors['blue'] or selected_colors['yellow']):
+                try:
+                    cb_type_auto = self.color_blindness_combo.currentData() or 'none'
+                except Exception:
+                    cb_type_auto = 'none'
+                if cb_type_auto in ('protanopia', 'deuteranopia'):
+                    selected_colors['red'] = True
+                    selected_colors['green'] = True
+                    # Reflect in UI and persist once for consistency
+                    try:
+                        if hasattr(self, '_apply_detect_flags'):
+                            self._apply_detect_flags(True, True, False, False, persist=True)
+                    except Exception:
+                        pass
+                elif cb_type_auto == 'tritanopia':
+                    selected_colors['blue'] = True
+                    selected_colors['yellow'] = True
+                    try:
+                        if hasattr(self, '_apply_detect_flags'):
+                            self._apply_detect_flags(False, False, True, True, persist=True)
+                    except Exception:
+                        pass
             
             translated_color_names = {
                 'red': tr.get_text("red"),
@@ -205,9 +230,9 @@ class EventHandlers:
                 if widget:
                     widget.setParent(None)
             
-            # Show file name
+            # Show file analysis completed title with file name
             file_name = os.path.basename(file_path)
-            title_label = QLabel(f"📁 {tr.get_text('analyzing_file')}: {file_name}")
+            title_label = QLabel(f"📁 {tr.get_text('file_analysis_complete')}: {file_name}")
             title_label.setStyleSheet("""
                 QLabel {
                     color: #2196F3;
@@ -228,6 +253,54 @@ class EventHandlers:
             image_label.setPixmap(original_pix)
             image_label.setAlignment(Qt.AlignCenter)
             self.camera_feed_layout.addWidget(image_label)
+
+            # Add a small action row with a "Save to Gallery" button below the image
+            from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton
+            action_row = QWidget()
+            row_layout = QHBoxLayout(action_row)
+            row_layout.setContentsMargins(10, 0, 10, 10)
+            row_layout.setSpacing(10)
+            row_layout.addStretch()
+            save_btn = QPushButton(tr.get_text("save_to_gallery") if hasattr(tr, 'get_text') else "Save to Gallery")
+            save_btn.setObjectName("saveToGalleryButton")
+            # Theme-aware styling using existing button theming if available
+            try:
+                from ..ui_components.buttons import update_button_theme
+                theme = getattr(self, 'theme', 'dark')
+                cb_type = None
+                try:
+                    if hasattr(self, 'color_blindness_combo') and self.color_blindness_combo is not None:
+                        cb_type = self.color_blindness_combo.currentData()
+                    if not cb_type and hasattr(self, 'current_profile') and self.current_profile is not None:
+                        cb_type = getattr(self.current_profile, 'color_blindness_type', 'none')
+                except Exception:
+                    cb_type = 'none'
+                cb_type = (cb_type or 'none')
+                update_button_theme(save_btn, 'snapshot', theme, cb_type)
+            except Exception:
+                pass
+
+            def _save_to_gallery():
+                try:
+                    # analysis_result is in BGR (OpenCV) in this flow; save as is
+                    ok, path_or_err = self.camera_manager.save_image_to_gallery(analysis_result)
+                    if ok:
+                        self.status_bar.showMessage(tr.get_text("screenshot_saved", os.path.basename(path_or_err)))
+                        # If gallery is open, refresh it briefly
+                        try:
+                            if hasattr(self, '_gallery_window') and self._gallery_window is not None:
+                                self._gallery_window.refresh_gallery()
+                        except Exception:
+                            pass
+                    else:
+                        self.status_bar.showMessage(tr.get_text("screenshot_failed", path_or_err))
+                except Exception as e:
+                    self.status_bar.showMessage(tr.get_text("screenshot_failed", str(e)))
+
+            save_btn.clicked.connect(_save_to_gallery)
+            row_layout.addWidget(save_btn)
+            row_layout.addStretch()
+            self.camera_feed_layout.addWidget(action_row)
 
             # Install an event filter to rescale image smoothly on container/label resize
             class _ImageFitHelper(QObject):
@@ -275,6 +348,13 @@ class EventHandlers:
                 QTimer.singleShot(0, helper._apply)
             except Exception:
                 helper._apply()
+            
+            # Mark that file-loaded analyzed view is active and keep helper for window-level resize
+            try:
+                self._file_loaded_view_active = True
+                self._loaded_fit_helper = helper
+            except Exception:
+                pass
             
             # Status message
             self.status_bar.showMessage(tr.get_text("file_analysis_complete"))
