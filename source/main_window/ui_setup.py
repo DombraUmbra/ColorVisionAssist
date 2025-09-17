@@ -5,7 +5,7 @@ Contains all UI initialization and setup functions
 
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QStatusBar, 
-                           QCheckBox, QSlider, QApplication, QLabel, QPushButton)
+                           QCheckBox, QSlider, QApplication, QLabel, QPushButton, QSizePolicy)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from ..translations import translator as tr
@@ -15,7 +15,8 @@ from ..ui_components import (
     create_camera_settings_group,
     create_language_group, 
     create_about_group, 
-    create_camera_interface
+    create_camera_interface,
+    CameraSelector
 )
 from ..ui_components.groups import update_color_blindness_combo_language
 from ..ui_components.buttons import update_button_theme
@@ -57,18 +58,29 @@ class UISetup:
         # Main camera container
         self.camera_container = QWidget()
         self.camera_layout = QVBoxLayout(self.camera_container)
+        self.camera_layout.setSpacing(10)  # Reduce spacing between components
         
-        # Camera feed container
+        # Camera selection container - no stretch
+        self.camera_selector = CameraSelector(self.camera_manager, self)
+        # Connect camera selector signal to update profile when camera changes
+        self.camera_selector.camera_changed.connect(self.on_camera_changed)
+        self.camera_layout.addWidget(self.camera_selector, 0)  # No stretch for selector
+        
+        # Camera feed container - gets most of the space
         self.camera_feed_container = QWidget()
         self.camera_feed_layout = QVBoxLayout(self.camera_feed_container)
         self.camera_feed_layout.setContentsMargins(20, 20, 20, 20)
         
+        # Set minimum size when camera is not running to reduce empty space
+        self.camera_feed_container.setMinimumHeight(200)  # Minimum height for start message
+        self.camera_feed_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        
         # Show camera message
         create_camera_interface(self, self.camera_feed_layout)
         
-        self.camera_layout.addWidget(self.camera_feed_container)
-        # Camera control buttons - Use UI Components module
-        self.camera_layout.addLayout(create_camera_controls(self))
+        self.camera_layout.addWidget(self.camera_feed_container, 1)  # Give most space to camera area
+        # Camera control buttons - no stretch
+        self.camera_layout.addLayout(create_camera_controls(self), 0)  # No stretch for controls
 
     def apply_theme_to_components(self):
         """Apply theme-specific styles to inline-styled widgets and buttons."""
@@ -300,15 +312,7 @@ class UISetup:
                                             pass
         self.settings_layout.addStretch()
         
-        # Default color selection checkboxes (for advanced settings)
-        # These checkboxes will only be visible in advanced settings
-        self.red_checkbox = QCheckBox(tr.get_text("detect_red"))
-        self.green_checkbox = QCheckBox(tr.get_text("detect_green"))
-        self.blue_checkbox = QCheckBox(tr.get_text("detect_blue"))
-        self.yellow_checkbox = QCheckBox(tr.get_text("detect_yellow"))
-        
-        # NOTE: Default values will be set from profile in window.py after UI setup
-        # Don't set defaults here to avoid overwriting profile values
+        # NOTE: Color selection checkboxes are now only in Advanced Settings dialog
         
         # Filtering settings - will be set from profile
         self.skin_tone_filtering_active = True  # Temporary default, will be overridden
@@ -373,12 +377,6 @@ class UISetup:
         
         # Update color blindness combo tooltip
         self.color_blindness_combo.setToolTip(tr.get_text("color_blindness_type_tooltip"))
-        
-        # Update checkboxes (for internal use only)
-        self.red_checkbox.setText(tr.get_text("detect_red"))
-        self.green_checkbox.setText(tr.get_text("detect_green"))
-        self.blue_checkbox.setText(tr.get_text("detect_blue"))
-        self.yellow_checkbox.setText(tr.get_text("detect_yellow"))
         
         # Update labels
         self.camera_info_label.setText(tr.get_text("camera_settings_info"))

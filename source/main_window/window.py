@@ -70,15 +70,14 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         def apply_profile_after_ui_complete():
             if self.current_profile:
                 try:
-                    # Apply profile values to checkboxes
-                    if hasattr(self, 'red_checkbox'):
-                        self.red_checkbox.setChecked(getattr(self.current_profile, 'detect_red', True))
-                    if hasattr(self, 'green_checkbox'):
-                        self.green_checkbox.setChecked(getattr(self.current_profile, 'detect_green', True))
-                    if hasattr(self, 'blue_checkbox'):
-                        self.blue_checkbox.setChecked(getattr(self.current_profile, 'detect_blue', False))
-                    if hasattr(self, 'yellow_checkbox'):
-                        self.yellow_checkbox.setChecked(getattr(self.current_profile, 'detect_yellow', False))
+                    # Initialize detection settings from profile
+                    self.current_detection_settings = {
+                        'red': getattr(self.current_profile, 'detect_red', True),
+                        'green': getattr(self.current_profile, 'detect_green', True),
+                        'blue': getattr(self.current_profile, 'detect_blue', False),
+                        'yellow': getattr(self.current_profile, 'detect_yellow', False)
+                    }
+                    print(f"[DEBUG] Initialized detection settings from profile: {self.current_detection_settings}")
 
                     # Apply sensitivity slider value
                     if hasattr(self, 'sensitivity_slider'):
@@ -120,6 +119,15 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                                 self._apply_accessible_accent_colors()
                         except Exception:
                             pass
+
+                    # Apply camera selection from profile
+                    if hasattr(self, 'camera_manager') and hasattr(self, 'camera_selector'):
+                        try:
+                            camera_index = getattr(self.current_profile, 'selected_camera_index', 0)
+                            self.camera_manager.set_camera_index(camera_index)
+                            self.camera_selector.set_current_camera_index(camera_index)
+                        except Exception:
+                            pass
                 except Exception as e:
                     print(f"Warning: Could not apply profile values during UI setup: {e}")
 
@@ -146,6 +154,10 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         # Apply theme to profile selector after main theme application
         if hasattr(self, 'profile_selector'):
             self.profile_selector.apply_theme()
+        
+        # Apply theme to camera selector
+        if hasattr(self, 'camera_selector'):
+            self.camera_selector.update_theme(self.theme)
 
         # Apply window position/size from profile only at startup
         self._apply_startup_window_properties()
@@ -196,25 +208,20 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 val = self.settings.value('background_dimming_enabled', self.background_dimming_enabled, type=bool)
                 self.background_dimming_enabled = val
 
-            # Manual color selections for analysis (checkboxes)
-            for key, attr in (
-                ('detect_red', 'red_checkbox'),
-                ('detect_green', 'green_checkbox'),
-                ('detect_blue', 'blue_checkbox'),
-                ('detect_yellow', 'yellow_checkbox'),
-            ):
-                if hasattr(self, attr):
-                    checkbox = getattr(self, attr)
-                    # Determine default from current checkbox state, fallback to profile
-                    default_val = checkbox.isChecked()
-                    if self.current_profile is not None:
-                        default_val = bool(getattr(self.current_profile, key, default_val))
-                    val = self.settings.value(key, default_val, type=bool)
-                    try:
-                        checkbox.blockSignals(True)
-                        checkbox.setChecked(bool(val))
-                    finally:
-                        checkbox.blockSignals(False)
+            # Manual color selections for analysis - now stored in current_detection_settings
+            detection_settings = {}
+            for key in ('detect_red', 'detect_green', 'detect_blue', 'detect_yellow'):
+                # Determine default from profile
+                default_val = True if key in ['detect_red', 'detect_green'] else False
+                if self.current_profile is not None:
+                    default_val = bool(getattr(self.current_profile, key, default_val))
+                val = self.settings.value(key, default_val, type=bool)
+                color_key = key.replace('detect_', '')
+                detection_settings[color_key] = bool(val)
+            
+            # Store detection settings
+            self.current_detection_settings = detection_settings
+            print(f"[DEBUG] Loaded detection settings from QSettings: {detection_settings}")
         except Exception as e:
             print(f"Warning: Could not apply advanced settings from profile: {e}")
         
@@ -660,16 +667,13 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         if hasattr(self, 'auto_detection'):
             self.current_profile.auto_detection = getattr(self, 'auto_detection', True)
 
-        # Manual color selections
+        # Manual color selections from current detection settings
         try:
-            if hasattr(self, 'red_checkbox'):
-                self.current_profile.detect_red = bool(self.red_checkbox.isChecked())
-            if hasattr(self, 'green_checkbox'):
-                self.current_profile.detect_green = bool(self.green_checkbox.isChecked())
-            if hasattr(self, 'blue_checkbox'):
-                self.current_profile.detect_blue = bool(self.blue_checkbox.isChecked())
-            if hasattr(self, 'yellow_checkbox'):
-                self.current_profile.detect_yellow = bool(self.yellow_checkbox.isChecked())
+            if hasattr(self, 'current_detection_settings'):
+                self.current_profile.detect_red = bool(self.current_detection_settings.get('red', True))
+                self.current_profile.detect_green = bool(self.current_detection_settings.get('green', True))
+                self.current_profile.detect_blue = bool(self.current_detection_settings.get('blue', False))
+                self.current_profile.detect_yellow = bool(self.current_detection_settings.get('yellow', False))
         except Exception:
             pass
 
@@ -681,6 +685,13 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
                 self.current_profile.stability_enhancement_active = bool(self.stability_enhancement_active)
             if hasattr(self, 'debug_mode_active'):
                 self.current_profile.debug_mode_active = bool(self.debug_mode_active)
+        except Exception:
+            pass
+
+        # Save camera selection
+        try:
+            if hasattr(self, 'camera_manager') and self.camera_manager:
+                self.current_profile.selected_camera_index = int(self.camera_manager.selected_camera_index)
         except Exception:
             pass
         
@@ -700,14 +711,55 @@ class ColorVisionAid(QMainWindow, UISetup, CameraHandlers, EventHandlers):
         # Update status bar
         self.status_bar.showMessage(tr.get_text("ready"))
         
+    def on_camera_changed(self, camera_index):
+        """Handle camera selection change - always stops camera for safety"""
+        try:
+            print(f"Camera change requested to index: {camera_index}")
+            
+            # Stop timer if it's running since we're stopping the camera
+            if hasattr(self, 'timer') and self.timer.isActive():
+                self.timer.stop()
+                print("Stopped timer due to camera change")
+            
+            # Perform the camera switch (this will stop the current camera)
+            success = self.camera_manager.set_camera_index(camera_index)
+            
+            if success:
+                # Update current profile with new camera selection
+                if hasattr(self, 'current_profile') and self.current_profile:
+                    self.current_profile.selected_camera_index = camera_index
+                    # Save profile with updated camera selection
+                    self.profile_manager.save_profile(self.current_profile)
+                
+                # Update UI to show start message since camera is now stopped
+                from ..ui_components import create_camera_interface
+                create_camera_interface(self, self.camera_feed_layout)
+                
+                # Update button states - camera is now stopped
+                self.camera_toggle_button.setText(tr.get_text("start"))
+                self.camera_toggle_button.setToolTip(tr.get_text("start_tooltip"))
+                self.screenshot_button.setVisible(False)
+                
+                # Update button themes
+                try:
+                    theme = getattr(self, 'theme', 'dark')
+                    color_blindness_type = getattr(self.current_profile, 'color_blindness_type', 'none') if hasattr(self, 'current_profile') and self.current_profile else 'none'
+                    from ..ui_components.buttons import update_button_theme
+                    update_button_theme(self.camera_toggle_button, 'start', theme, color_blindness_type)
+                except Exception as e:
+                    print(f"Error updating button theme: {e}")
+                
+                self.status_bar.showMessage(f"Camera changed to index {camera_index}. Press Start to begin.")
+            else:
+                print(f"Failed to switch to camera {camera_index}")
+                self.status_bar.showMessage("Camera switch failed")
+                
+        except Exception as e:
+            print(f"Error during camera change: {e}")
+            self.status_bar.showMessage("Camera switch error occurred")
+                    
         # Recreate UI groups to update texts
-        # This is a simplified approach - in production you might want more granular updates
         self.setup_settings_panel()
-        
-        # Update camera interface if not running
-        if not self.camera_manager.camera_open and not getattr(self, '_file_loaded_view_active', False):
-            from ..ui_components import create_camera_interface
-            create_camera_interface(self, self.camera_feed_layout)
     
     def closeEvent(self, event):
         """Handle application close event"""

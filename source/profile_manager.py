@@ -23,6 +23,8 @@ class UserProfile:
     window_y: int = 100
     is_maximized: bool = False
     camera_permission: str = "ask"
+    # Camera settings
+    selected_camera_index: int = 0
     # Advanced settings
     detect_red: bool = True
     detect_green: bool = True
@@ -158,7 +160,7 @@ class ProfileManager:
             return False
     
     def load_profile(self, profile_name: str) -> Optional[UserProfile]:
-        """Load a profile from file"""
+        """Load a profile from file with migration support"""
         try:
             file_path = self._get_profile_file_path(profile_name)
             
@@ -167,6 +169,47 @@ class ProfileManager:
             
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            
+            # Migration: Add missing fields if they don't exist
+            if 'selected_camera_index' not in data:
+                data['selected_camera_index'] = 0
+            
+            # Ensure all required fields exist with defaults
+            required_fields = {
+                'name': profile_name,
+                'color_blindness_type': 'none',
+                'language': 'en',
+                'theme': 'dark',
+                'window_width': 1000,
+                'window_height': 600,
+                'window_x': 100,
+                'window_y': 100,
+                'is_maximized': False,
+                'camera_permission': 'ask',
+                'selected_camera_index': 0,
+                'detect_red': True,
+                'detect_green': True,
+                'detect_blue': False,
+                'detect_yellow': False,
+                'skin_tone_filtering_active': True,
+                'stability_enhancement_active': True,
+                'debug_mode_active': False,
+                'detection_sensitivity': 0.5,
+                'color_enhancement': True,
+                'voice_feedback': False,
+                'auto_detection': True,
+                'filter_strength': 1.0,
+                'created_date': '',
+                'last_used_date': '',
+                'gallery_x': -1,
+                'gallery_y': -1,
+                'gallery_width': -1,
+                'gallery_height': -1
+            }
+            
+            for field, default_value in required_fields.items():
+                if field not in data:
+                    data[field] = default_value
             
             profile = UserProfile.from_dict(data)
             

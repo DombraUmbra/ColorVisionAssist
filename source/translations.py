@@ -17,8 +17,8 @@ class Translations:
         self._translations = {
             # Application title and status messages
             "app_title": {
-                "en": "Whisper of Colors",
-                "tr": "Renklerin Fısıltısı"
+                "en": "Renkgörü",
+                "tr": "Renkgörü"
             },
             "camera_initializing": {
                 "en": "Camera initializing...",
@@ -139,8 +139,8 @@ class Translations:
                 "tr": "Hakkında"
             },
             "about_text": {
-                "en": "Whisper of Colors\nVersion 1.6\n\nRemove the barriers, reveal your color.",
-                "tr": "Renklerin Fısıltısı\nSürüm 1.6\n\nSınırları kaldır, rengini belli et."
+                "en": "Renkgörü\nVersion 1.6\n\nRemove the barriers, reveal your color.",
+                "tr": "Renkgörü\nSürüm 1.6\n\nSınırları kaldır, rengini belli et."
             },
             
             # Gallery
@@ -251,8 +251,8 @@ class Translations:
                 "tr": "Kamera İzni"
             },
             "camera_permission_text": {
-                "en": "Whisper of Colors needs access to your camera to detect colors.",
-                "tr": "Renklerin Fısıltısı renkleri algılamak için kamera erişimine ihtiyaç duyar."
+                "en": "Renkgörü needs access to your camera to detect colors.",
+                "tr": "Renkgörü renkleri algılamak için kamera erişimine ihtiyaç duyar."
             },
             
             # Camera permission buttons
@@ -287,6 +287,42 @@ class Translations:
             "camera_settings_info": {
                 "en": "Control how the app accesses your camera.",
                 "tr": "Uygulamanın kameranıza nasıl erişeceğini kontrol edin."
+            },
+            "select_camera": {
+                "en": "Select Camera",
+                "tr": "Kamera Seç"
+            },
+            "refresh_camera_list": {
+                "en": "Refresh camera list",
+                "tr": "Kamera listesini yenile"
+            },
+            "cameras_refreshed": {
+                "en": "Camera list refreshed",
+                "tr": "Kamera listesi yenilendi"
+            },
+            "camera_selected": {
+                "en": "Camera selected",
+                "tr": "Kamera seçildi"
+            },
+            "default_camera": {
+                "en": "Default Camera",
+                "tr": "Varsayılan Kamera"
+            },
+            "camera_detection_failed": {
+                "en": "Failed to detect cameras",
+                "tr": "Kameralar algılanamadı"
+            },
+            "high_resolution_warning": {
+                "en": "High resolution camera detected. Frames will be automatically scaled for optimal performance.",
+                "tr": "Yüksek çözünürlük kamera algılandı. Optimal performans için görüntüler otomatik olarak ölçeklendirilecek."
+            },
+            "resolution_adjusted": {
+                "en": "Camera resolution adjusted for stability",
+                "tr": "Stabilite için kamera çözünürlüğü ayarlandı"
+            },
+            "frame_processing_error": {
+                "en": "Frame processing error occurred",
+                "tr": "Görüntü işleme hatası oluştu"
             },
             "current_permission_status": {
                 "en": "Current status",

@@ -5,7 +5,8 @@ Contains non-camera event handling functions
 
 import os
 import cv2
-from PyQt5.QtWidgets import QFileDialog, QLabel, QSizePolicy
+import numpy as np
+from PyQt5.QtWidgets import QFileDialog, QLabel, QSizePolicy, QApplication
 from PyQt5.QtCore import Qt, QObject, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap
 from ..translations import translator as tr
@@ -16,48 +17,106 @@ from ..ui_components.groups import _apply_combo_theme
 
 class EventHandlers:
     """Mixin class for event handling functionality"""
-    def _apply_detect_flags(self, red: bool, green: bool, blue: bool, yellow: bool, persist: bool = True):
-        """Atomically set detection checkboxes and optionally persist to settings/profile."""
+    def on_camera_selection_changed(self, index: int):
+        """Handle camera selection combo change"""
         try:
-            if hasattr(self, 'red_checkbox'):
-                self.red_checkbox.blockSignals(True)
-                self.red_checkbox.setChecked(bool(red))
-                self.red_checkbox.blockSignals(False)
-            if hasattr(self, 'green_checkbox'):
-                self.green_checkbox.blockSignals(True)
-                self.green_checkbox.setChecked(bool(green))
-                self.green_checkbox.blockSignals(False)
-            if hasattr(self, 'blue_checkbox'):
-                self.blue_checkbox.blockSignals(True)
-                self.blue_checkbox.setChecked(bool(blue))
-                self.blue_checkbox.blockSignals(False)
-            if hasattr(self, 'yellow_checkbox'):
-                self.yellow_checkbox.blockSignals(True)
-                self.yellow_checkbox.setChecked(bool(yellow))
-                self.yellow_checkbox.blockSignals(False)
-
-            if persist:
-                # Persist immediately to QSettings to avoid later overrides
+            if not hasattr(self, 'camera_combo'):
+                return
+            camera_index = self.camera_combo.itemData(index)
+            if camera_index is None:
+                return
+            
+            # Set selected camera in camera manager
+            self.camera_manager.set_selected_camera(int(camera_index))
+            
+            # Persist selection in settings
+            self.settings.setValue('selected_camera_index', int(camera_index))
+            
+            # Save to current profile
+            if hasattr(self, 'current_profile') and self.current_profile is not None:
+                setattr(self.current_profile, 'selected_camera_index', int(camera_index))
+                if hasattr(self, 'profile_manager'):
+                    self.profile_manager.save_profile(self.current_profile)
+            
+            # If camera is running, restart with new camera
+            if self.camera_manager.camera_open:
+                self.stop_camera()
+                self.camera_startup_process()
+                
+        except Exception as e:
+            print(f"Error changing camera selection: {e}")
+    
+    def on_camera_device_changed(self, index: int):
+        """Handle camera device combo selection change."""
+        try:
+            if not hasattr(self, 'camera_device_combo'):
+                return
+            device_index = self.camera_device_combo.itemData(index)
+            if device_index is None:
+                return
+            # Persist selection
+            self.selected_camera_index = int(device_index)
+            try:
+                self.settings.setValue('selected_camera_index', int(device_index))
+            except Exception:
+                pass
+            try:
+                if hasattr(self, 'current_profile') and self.current_profile is not None:
+                    setattr(self.current_profile, 'selected_camera_index', int(device_index))
+                    # Save profile silently
+                    if hasattr(self, 'profile_manager'):
+                        self.profile_manager.save_profile(self.current_profile)
+            except Exception:
+                pass
+            # If camera is running, switch device safely
+            if hasattr(self, 'camera_manager') and self.camera_manager is not None and self.camera_manager.camera_open:
                 try:
-                    if hasattr(self, 'settings') and self.settings is not None:
-                        self.settings.setValue('detect_red', bool(red))
-                        self.settings.setValue('detect_green', bool(green))
-                        self.settings.setValue('detect_blue', bool(blue))
-                        self.settings.setValue('detect_yellow', bool(yellow))
+                    self.stop_camera()
+                    # If permission previously granted, restart automatically
+                    self.camera_startup_process()
                 except Exception:
                     pass
-                # Update current profile in-memory
-                try:
-                    if hasattr(self, 'current_profile') and self.current_profile is not None:
-                        self.current_profile.detect_red = bool(red)
-                        self.current_profile.detect_green = bool(green)
-                        self.current_profile.detect_blue = bool(blue)
-                        self.current_profile.detect_yellow = bool(yellow)
-                except Exception:
-                    pass
+            # Nudge theme of combo for consistency
+            try:
+                _apply_combo_theme(self.camera_device_combo, self)
+            except Exception:
+                pass
         except Exception:
             pass
-    
+    def _apply_detect_flags(self, red: bool, green: bool, blue: bool, yellow: bool, persist: bool = True):
+        """Apply detection flags by storing them and updating button themes."""
+        print(f"[DEBUG] _apply_detect_flags called: red={red}, green={green}, blue={blue}, yellow={yellow}, persist={persist}")
+        
+        # Store current detection settings for use by camera handlers and dialogs
+        self.current_detection_settings = {
+            'red': red,
+            'green': green,
+            'blue': blue,
+            'yellow': yellow
+        }
+        
+        if persist:
+            # Persist immediately to QSettings to avoid later overrides
+            try:
+                if hasattr(self, 'settings') and self.settings is not None:
+                    self.settings.setValue('detect_red', bool(red))
+                    self.settings.setValue('detect_green', bool(green))
+                    self.settings.setValue('detect_blue', bool(blue))
+                    self.settings.setValue('detect_yellow', bool(yellow))
+                    print(f"[DEBUG] Detection settings persisted to QSettings")
+            except Exception as e:
+                print(f"[DEBUG] Failed to persist detection settings: {e}")
+
+        # Update button themes based on current detection settings
+        try:
+            from source.ui_components.buttons import update_button_theme
+            update_button_theme(self)
+            print("[DEBUG] Button theme updated after detection flags changed")
+        except Exception as e:
+            print(f"[DEBUG] Failed to update button theme: {e}")
+            
+        print(f"[DEBUG] Detection settings stored: {self.current_detection_settings}")
+
     def take_screenshot(self):
         """Take screenshot"""
         success, result = self.camera_manager.take_screenshot()
@@ -123,25 +182,53 @@ class EventHandlers:
         
         if file_path:
             try:
-                # Load image
-                image = cv2.imread(file_path)
+                print(f"Attempting to load image from: {file_path}")
+                
+                # Validate file exists and is readable
+                if not os.path.exists(file_path):
+                    self.status_bar.showMessage("File does not exist")
+                    return
+                
+                if not os.access(file_path, os.R_OK):
+                    self.status_bar.showMessage("File is not readable")
+                    return
+                
+                # Load image using numpy to handle Unicode file paths
+                # Read file as binary data
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                # Decode image from binary data
+                nparr = np.frombuffer(file_data, np.uint8)
+                image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                
                 if image is None:
+                    print(f"cv2.imdecode returned None for file: {file_path}")
                     self.status_bar.showMessage(tr.get_text("file_load_failed"))
                     return
                 
-                # Stop camera (if active)
-                if self.camera_manager.camera_open:
+                print(f"Image loaded successfully. Shape: {image.shape}")
+                
+                # Stop camera (if active) - check if camera_manager exists
+                if hasattr(self, 'camera_manager') and self.camera_manager and self.camera_manager.camera_open:
+                    print("Stopping camera before analyzing file...")
                     self.stop_camera()
                 
                 # Analyze and display loaded image
                 self.analyze_loaded_image(image, file_path)
                 
             except Exception as e:
+                print(f"Exception in load_file: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 self.status_bar.showMessage(f"File loading error: {str(e)}")
 
     def analyze_loaded_image(self, image, file_path):
         """Analyze loaded image and show result"""
         try:
+            print(f"Starting image analysis for: {file_path}")
+            print(f"Image shape: {image.shape}")
+            
             # Resize image to appropriate size (reduce if too large)
             height, width = image.shape[:2]
             max_size = 800
@@ -151,15 +238,23 @@ class EventHandlers:
                 new_width = int(width * scale_factor)
                 new_height = int(height * scale_factor)
                 image = cv2.resize(image, (new_width, new_height))
+                print(f"Image resized to: {new_width}x{new_height}")
+            
+            # Check if detection settings exist
+            if not hasattr(self, 'current_detection_settings'):
+                # Initialize default detection settings if not set
+                self.current_detection_settings = {
+                    'red': True,
+                    'green': True, 
+                    'blue': False,
+                    'yellow': False
+                }
             
             # Perform color analysis
-            selected_colors = {
-                'skin': True,  # Skin tone works in background
-                'red': self.red_checkbox.isChecked(),
-                'green': self.green_checkbox.isChecked(),
-                'blue': self.blue_checkbox.isChecked(),
-                'yellow': self.yellow_checkbox.isChecked()
-            }
+            selected_colors = self.current_detection_settings.copy()
+            selected_colors['skin'] = True  # Skin tone works in background
+            
+            print(f"Selected colors: {selected_colors}")
 
             # If no manual colors are selected yet (common on first app start before profile applies),
             # auto-select by color blindness type to avoid empty detection, mirroring camera live logic.
@@ -168,6 +263,8 @@ class EventHandlers:
                     cb_type_auto = self.color_blindness_combo.currentData() or 'none'
                 except Exception:
                     cb_type_auto = 'none'
+                    
+                print(f"Auto-selecting colors based on CB type: {cb_type_auto}")
                 if cb_type_auto in ('protanopia', 'deuteranopia'):
                     selected_colors['red'] = True
                     selected_colors['green'] = True
@@ -186,6 +283,11 @@ class EventHandlers:
                     except Exception:
                         pass
             
+            # Check if color_detector exists
+            if not hasattr(self, 'color_detector') or self.color_detector is None:
+                self.status_bar.showMessage("Color detector not initialized")
+                return
+                
             translated_color_names = {
                 'red': tr.get_text("red"),
                 'green': tr.get_text("green"),
@@ -195,6 +297,7 @@ class EventHandlers:
             
             color_blindness_type = self.color_blindness_combo.currentData() or 'red_green'
             
+            print("Calling color detector...")
             # Analyze with color detector
             analysis_result = self.color_detector.process_frame(
                 image,
@@ -210,25 +313,53 @@ class EventHandlers:
                 getattr(self, 'background_dimming_enabled', True)
             )
             
+            print("Color analysis completed, showing result...")
             # Show result
             self.show_analysis_result(analysis_result, file_path)
             
         except Exception as e:
+            print(f"Exception in analyze_loaded_image: {str(e)}")
+            import traceback
+            traceback.print_exc()
             self.status_bar.showMessage(f"Analysis error: {str(e)}")
 
     def show_analysis_result(self, analysis_result, file_path):
         """Show analysis result in camera area"""
         try:
+            # Mark that we are showing file analysis result (not camera feed)
+            self._file_loaded_view_active = True
+            
             # Convert result to QImage
             h, w, c = analysis_result.shape
             bytes_per_line = 3 * w
             qImg = QImage(analysis_result.data, w, h, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
             
-            # Clear existing widgets
+            # Clear existing widgets thoroughly 
             for i in reversed(range(self.camera_feed_layout.count())): 
-                widget = self.camera_feed_layout.itemAt(i).widget()
-                if widget:
-                    widget.setParent(None)
+                child = self.camera_feed_layout.itemAt(i)
+                if child:
+                    widget = child.widget()
+                    if widget:
+                        # Remove any event filters
+                        try:
+                            widget.removeEventFilter(widget)
+                        except:
+                            pass
+                        # Properly disconnect all signals
+                        try:
+                            widget.disconnect()
+                        except:
+                            pass
+                        # Remove from layout and delete
+                        self.camera_feed_layout.removeWidget(widget)
+                        widget.setParent(None)
+                        widget.deleteLater()
+                    else:
+                        # Handle layout items
+                        self.camera_feed_layout.removeItem(child)
+            
+            # Process any pending deletions
+            QApplication.processEvents()
             
             # Show file analysis completed title with file name
             file_name = os.path.basename(file_path)
@@ -364,11 +495,27 @@ class EventHandlers:
 
     def color_blindness_type_changed(self, index):
         """Automatic color selection when color blindness type changes"""
-        # Get the data using the new combobox method
-        type_code = self.color_blindness_combo.currentData()
+        # Use the index parameter directly instead of currentData() which may be unreliable
+        print(f"[DEBUG] Color blindness type changed - signal index: {index}")
+        
+        # Get data directly from the model using the signal's index
+        type_code = None
+        if hasattr(self.color_blindness_combo, 'model'):
+            item = self.color_blindness_combo.model.item(index)
+            if item and item.isEnabled():
+                type_code = item.data(Qt.UserRole)
+                print(f"[DEBUG] Got type_code from signal index {index}: {type_code}")
+            else:
+                print(f"[DEBUG] Item at signal index {index} is disabled or doesn't exist")
+                return
+        else:
+            # Fallback to currentData method
+            type_code = self.color_blindness_combo.currentData()
+            print(f"[DEBUG] Fallback - got type_code from currentData(): {type_code}")
         
         # Skip if this is a category header or no valid data
         if type_code is None or type_code == "category":
+            print("[DEBUG] Skipping - no valid type_code or category header")
             return
         
         # Apply appropriate colors based on selected type
@@ -402,6 +549,7 @@ class EventHandlers:
             pass
 
         # Update button colors for color blindness accessibility
+        print(f"[DEBUG] Calling update_button_colors_for_accessibility with: {type_code}")
         self.update_button_colors_for_accessibility(type_code)
 
         # Update open gallery button themes if gallery is open
@@ -475,8 +623,24 @@ class EventHandlers:
 
     def open_advanced_settings(self):
         """Open advanced settings dialog"""
-        dialog = AdvancedSettingsDialog(self)
-        dialog.exec_()
+        print("[DEBUG] Opening Advanced Settings dialog")
+        try:
+            self._advanced_settings_dialog = AdvancedSettingsDialog(self)
+            print(f"[DEBUG] Created dialog reference: {self._advanced_settings_dialog}")
+        except Exception as e:
+            print(f"[DEBUG] Failed to create dialog: {e}")
+            self._advanced_settings_dialog = None
+        dialog = self._advanced_settings_dialog
+        if dialog is not None:
+            print("[DEBUG] Executing dialog...")
+            dialog.exec_()
+            print("[DEBUG] Dialog closed")
+        # Clear reference after close to avoid stale pointer
+        try:
+            print("[DEBUG] Clearing dialog reference")
+            self._advanced_settings_dialog = None
+        except Exception:
+            pass
 
     def change_language(self, index):
         """Change application language"""
@@ -662,25 +826,32 @@ class EventHandlers:
 
     def update_button_colors_for_accessibility(self, color_blindness_type):
         """Update button colors based on color blindness type for better accessibility"""
+        print(f"[DEBUG] update_button_colors_for_accessibility called with: {color_blindness_type}")
         from ..ui_components.buttons import update_button_theme
         
         # Get current theme
         theme = getattr(self, 'theme', 'dark')
+        print(f"[DEBUG] Current theme: {theme}")
         
         # Update all main buttons with accessibility colors
         if hasattr(self, 'camera_toggle_button'):
             if self.camera_manager.camera_open:
+                print(f"[DEBUG] Updating camera_toggle_button to 'stop' style")
                 update_button_theme(self.camera_toggle_button, 'stop', theme, color_blindness_type)
             else:
+                print(f"[DEBUG] Updating camera_toggle_button to 'start' style")
                 update_button_theme(self.camera_toggle_button, 'start', theme, color_blindness_type)
                 
         if hasattr(self, 'screenshot_button'):
+            print(f"[DEBUG] Updating screenshot_button")
             update_button_theme(self.screenshot_button, 'snapshot', theme, color_blindness_type)
             
         if hasattr(self, 'load_file_button'):
+            print(f"[DEBUG] Updating load_file_button")
             update_button_theme(self.load_file_button, 'load_file', theme, color_blindness_type)
             
         if hasattr(self, 'gallery_button'):
+            print(f"[DEBUG] Updating gallery_button")
             update_button_theme(self.gallery_button, 'gallery', theme, color_blindness_type)
             
         # Keep Advanced Settings button style constant (not color-blindness dependent)

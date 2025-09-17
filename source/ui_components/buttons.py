@@ -10,10 +10,15 @@ from .styles import apply_colorblind_friendly_button_style
 def update_button_theme(button: QPushButton, style_class: str, theme: str = 'dark', color_blindness_type: str = "none"):
     """Apply style to button based on style_class, theme ('dark'|'light'), and color blindness type."""
     
+    print(f"[DEBUG] update_button_theme: style={style_class}, theme={theme}, cb_type={color_blindness_type}")
+    
     # If color blindness support is needed, use the accessible styling
     if color_blindness_type in ["protanopia", "deuteranopia", "tritanopia"]:
+        print(f"[DEBUG] Applying colorblind-friendly styling for {color_blindness_type}")
         apply_colorblind_friendly_button_style(button, style_class, color_blindness_type, theme)
         return
+    
+    print(f"[DEBUG] Applying standard styling (no colorblind support needed)")
     
     # Original styling for normal vision
     style_dict_dark = {

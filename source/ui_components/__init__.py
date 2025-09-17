@@ -6,6 +6,9 @@ Modular UI component system with organized imports
 # Import all button functions
 from .buttons import create_button, create_camera_controls
 
+# Import camera selector
+from .camera_selector import CameraSelector
+
 # Import all group creation functions  
 from .groups import (
     create_color_blindness_type_group,
@@ -29,6 +32,9 @@ __all__ = [
     # Button functions
     'create_button',
     'create_camera_controls',
+    
+    # Camera selector
+    'CameraSelector',
     
     # Group functions
     'create_color_blindness_type_group',

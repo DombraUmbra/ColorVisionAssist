@@ -175,7 +175,7 @@ def apply_theme(widget, theme: str):
         apply_dark_theme(widget)
 
 def create_camera_interface(parent, layout):
-    """Create camera interface with start message"""
+    """Create compact camera interface with start message"""
     # Clear previous widgets
     for i in reversed(range(layout.count())):
         child = layout.takeAt(i).widget()
@@ -184,21 +184,16 @@ def create_camera_interface(parent, layout):
     
     # Calculate responsive sizes based on window size
     window_width = parent.width() if hasattr(parent, 'width') else 1000
-    window_height = parent.height() if hasattr(parent, 'height') else 600
     
-    # Calculate responsive icon size (minimum 40pt, maximum 120pt)
-    base_icon_size = max(40, min(120, int(window_width * 0.08)))
-    
-    # Calculate responsive message size (minimum 10pt, maximum 18pt)
-    base_message_size = max(10, min(18, int(window_width * 0.015)))
-    
-    # Calculate responsive margins
-    responsive_margin = max(10, min(40, int(window_width * 0.025)))
+    # Smaller, more compact responsive sizes for start message
+    base_icon_size = max(24, min(48, int(window_width * 0.04)))  # Reduced from 0.08
+    base_message_size = max(9, min(14, int(window_width * 0.012)))  # Reduced from 0.015
+    responsive_margin = max(5, min(20, int(window_width * 0.015)))  # Reduced from 0.025
     
     # Start message
     start_widget = QWidget()
     start_layout = QVBoxLayout()
-    start_layout.setContentsMargins(responsive_margin, responsive_margin, responsive_margin, responsive_margin)
+    start_layout.setContentsMargins(responsive_margin, responsive_margin//2, responsive_margin, responsive_margin//2)  # Reduce vertical margins
     
     # Icon/Placeholder - Use a camera icon with fallback
     try:
@@ -223,7 +218,7 @@ def create_camera_interface(parent, layout):
                 text-align: center;
                 background-color: transparent;
                 border: none;
-                margin: {responsive_margin}px;
+                margin: {responsive_margin//2}px;
                 font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
             }}
         """)
@@ -235,7 +230,7 @@ def create_camera_interface(parent, layout):
                 text-align: center;
                 background-color: transparent;
                 border: none;
-                margin: {responsive_margin}px;
+                margin: {responsive_margin//2}px;
                 font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
             }}
         """)
@@ -244,7 +239,7 @@ def create_camera_interface(parent, layout):
     
     # Start message with responsive sizing
     start_message = QLabel(tr.get_text("camera_start_message"))
-    responsive_padding = max(5, min(15, int(window_width * 0.012)))
+    responsive_padding = max(3, min(10, int(window_width * 0.008)))  # Reduced padding
     if theme == 'light':
         start_message.setStyleSheet(f"""
             QLabel {{

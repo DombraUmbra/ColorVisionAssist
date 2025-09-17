@@ -49,6 +49,31 @@ class AdvancedSettingsDialog(QDialog):
         # Capture initial state after UI is built
         self._capture_initial_state()
 
+    def set_color_checkboxes(self, red: bool, green: bool, blue: bool, yellow: bool):
+        """Sync checkbox states from parent while dialog is open."""
+        print(f"[DEBUG] AdvancedSettingsDialog.set_color_checkboxes called: red={red}, green={green}, blue={blue}, yellow={yellow}")
+        try:
+            if hasattr(self, 'red_checkbox') and self.red_checkbox is not None:
+                self.red_checkbox.setChecked(bool(red))
+                print(f"[DEBUG] Dialog red checkbox set to: {bool(red)}")
+            if hasattr(self, 'green_checkbox') and self.green_checkbox is not None:
+                self.green_checkbox.setChecked(bool(green))
+                print(f"[DEBUG] Dialog green checkbox set to: {bool(green)}")
+            if hasattr(self, 'blue_checkbox') and self.blue_checkbox is not None:
+                self.blue_checkbox.setChecked(bool(blue))
+                print(f"[DEBUG] Dialog blue checkbox set to: {bool(blue)}")
+            if hasattr(self, 'yellow_checkbox') and self.yellow_checkbox is not None:
+                self.yellow_checkbox.setChecked(bool(yellow))
+                print(f"[DEBUG] Dialog yellow checkbox set to: {bool(yellow)}")
+            try:
+                self.update()
+                self.repaint()
+                print(f"[DEBUG] Dialog updated and repainted")
+            except Exception as e:
+                print(f"[DEBUG] Dialog update/repaint failed: {e}")
+        except Exception as e:
+            print(f"[DEBUG] set_color_checkboxes failed: {e}")
+
     def _capture_initial_state(self):
         """Snapshot initial values to detect unsaved changes on close."""
         self._initial_state = self._get_current_state()
@@ -238,11 +263,51 @@ class AdvancedSettingsDialog(QDialog):
         self.blue_checkbox = QCheckBox(tr.get_text("detect_blue"))
         self.yellow_checkbox = QCheckBox(tr.get_text("detect_yellow"))
         
-        # Get values from main window
-        self.red_checkbox.setChecked(self.parent.red_checkbox.isChecked())
-        self.green_checkbox.setChecked(self.parent.green_checkbox.isChecked())
-        self.blue_checkbox.setChecked(self.parent.blue_checkbox.isChecked())
-        self.yellow_checkbox.setChecked(self.parent.yellow_checkbox.isChecked())
+        # Get current detection settings from main window or use defaults based on color blindness type
+        print(f"[DEBUG] Dialog init - Getting detection settings from parent")
+        
+        # Initialize with default values based on color blindness type
+        red_checked = True
+        green_checked = True  
+        blue_checked = False
+        yellow_checked = False
+        
+        # Get current detection settings from parent if available
+        if hasattr(self.parent, 'current_detection_settings') and self.parent.current_detection_settings:
+            detection_settings = self.parent.current_detection_settings
+            red_checked = detection_settings.get('red', True)
+            green_checked = detection_settings.get('green', True)
+            blue_checked = detection_settings.get('blue', False)
+            yellow_checked = detection_settings.get('yellow', False)
+            print(f"[DEBUG] Using parent detection settings: {detection_settings}")
+        else:
+            # Fallback: use color blindness type to determine defaults
+            try:
+                cb_type = self.parent.color_blindness_combo.currentData()
+                if cb_type in ['protanopia', 'deuteranopia']:
+                    red_checked = True
+                    green_checked = True
+                    blue_checked = False
+                    yellow_checked = False
+                elif cb_type == 'tritanopia':
+                    red_checked = False
+                    green_checked = False
+                    blue_checked = True
+                    yellow_checked = True
+                print(f"[DEBUG] Using color blindness type defaults for {cb_type}")
+            except:
+                print("[DEBUG] Failed to get color blindness type, using defaults")
+        
+        self.red_checkbox.setChecked(red_checked)
+        self.green_checkbox.setChecked(green_checked)
+        self.blue_checkbox.setChecked(blue_checked)
+        self.yellow_checkbox.setChecked(yellow_checked)
+        
+        print(f"[DEBUG] Dialog checkboxes after setting:")
+        print(f"[DEBUG] Dialog red_checkbox.isChecked(): {self.red_checkbox.isChecked()}")
+        print(f"[DEBUG] Dialog green_checkbox.isChecked(): {self.green_checkbox.isChecked()}")
+        print(f"[DEBUG] Dialog blue_checkbox.isChecked(): {self.blue_checkbox.isChecked()}")
+        print(f"[DEBUG] Dialog yellow_checkbox.isChecked(): {self.yellow_checkbox.isChecked()}")
 
         # If none selected, enforce automatic defaults based on current CB type
         try:
@@ -659,20 +724,35 @@ class AdvancedSettingsDialog(QDialog):
         
     def save_settings_and_close(self):
         """Save settings and close dialog"""
-        # Update color selections
-        self.parent.red_checkbox.setChecked(self.red_checkbox.isChecked())
-        self.parent.green_checkbox.setChecked(self.green_checkbox.isChecked())
-        self.parent.blue_checkbox.setChecked(self.blue_checkbox.isChecked())
-        self.parent.yellow_checkbox.setChecked(self.yellow_checkbox.isChecked())
-        # Persist to QSettings as well for consistency
+        # Update color selections using _apply_detect_flags
         try:
-            if hasattr(self.parent, 'settings'):
-                self.parent.settings.setValue("detect_red", self.parent.red_checkbox.isChecked())
-                self.parent.settings.setValue("detect_green", self.parent.green_checkbox.isChecked())
-                self.parent.settings.setValue("detect_blue", self.parent.blue_checkbox.isChecked())
-                self.parent.settings.setValue("detect_yellow", self.parent.yellow_checkbox.isChecked())
-        except Exception:
-            pass
+            if hasattr(self.parent, '_apply_detect_flags'):
+                self.parent._apply_detect_flags(
+                    self.red_checkbox.isChecked(),
+                    self.green_checkbox.isChecked(),
+                    self.blue_checkbox.isChecked(),
+                    self.yellow_checkbox.isChecked(),
+                    persist=True
+                )
+                print("[DEBUG] Detection settings applied from dialog")
+            else:
+                # Fallback: directly update detection settings and persist
+                self.parent.current_detection_settings = {
+                    'red': self.red_checkbox.isChecked(),
+                    'green': self.green_checkbox.isChecked(),
+                    'blue': self.blue_checkbox.isChecked(),
+                    'yellow': self.yellow_checkbox.isChecked()
+                }
+                
+                # Persist to QSettings
+                if hasattr(self.parent, 'settings'):
+                    self.parent.settings.setValue("detect_red", self.red_checkbox.isChecked())
+                    self.parent.settings.setValue("detect_green", self.green_checkbox.isChecked())
+                    self.parent.settings.setValue("detect_blue", self.blue_checkbox.isChecked())
+                    self.parent.settings.setValue("detect_yellow", self.yellow_checkbox.isChecked())
+                print("[DEBUG] Detection settings saved directly")
+        except Exception as e:
+            print(f"[DEBUG] Failed to save detection settings: {e}")
         
         # Update sensitivity value
         if hasattr(self, 'sensitivity_slider'):
